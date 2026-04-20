@@ -144,6 +144,7 @@ def query(
         window: Number of verses before/after each hit to include (0 = no window).
         dedupe: Whether to apply proximity deduplication (default True).
         exclude: Text to exclude from results via vector similarity (dense mode only).
+        scope: Optional scope filter to restrict results by volume/book/range.
 
     Returns:
         QueryResult with results and timing.
@@ -163,6 +164,19 @@ def query(
 
     extracted_refs = extract_references(text)
     extracted_verse_ids: set[str] = set()
+
+    if scope is not None:
+        scoped_refs = filter_by_scope(extracted_refs, scope)
+        dropped_refs = [r for r in extracted_refs if r not in scoped_refs]
+        for ref in dropped_refs:
+            _logger.info(
+                "Dropped extracted reference %s: outside scope (volume=%s, book=%s, range=%s)",
+                canonical(ref.book, ref.chapter, ref.verse),
+                scope.volume,
+                scope.book,
+                scope.range_refs,
+            )
+        extracted_refs = scoped_refs
 
     store = open_store(idx_dir / "corpus.sqlite")
     try:
@@ -184,9 +198,15 @@ def query(
     fused_hits: list[tuple[str, float]] = []
     floor_info: FloorInfo | None = None
 
+    if scope is not None:
+        scope_cfg = load_scope_config()
+        retrieval_k = k * scope_cfg.scope_buffer
+    else:
+        retrieval_k = k
+
     if mode == "bm25":
         start = time.perf_counter()
-        bm25_hits = _run_bm25(idx_dir, text, k)
+        bm25_hits = _run_bm25(idx_dir, text, retrieval_k)
         latency["bm25"] = (time.perf_counter() - start) * 1000
         if floor is not None:
             if floor > 0.0 and bm25_hits:
@@ -203,9 +223,9 @@ def query(
         if exclude is not None:
             exclude_cfg = load_exclude_config()
             exclusion_set = set(compute_exclusion_set(exclude, exclude_cfg.exclude_m, idx_dir))
-            dense_k = k + exclude_cfg.exclude_buffer
+            dense_k = retrieval_k + exclude_cfg.exclude_buffer
         else:
-            dense_k = k
+            dense_k = retrieval_k
 
         start = time.perf_counter()
         dense_hits = _run_dense(idx_dir, text, dense_k)
@@ -223,11 +243,11 @@ def query(
 
     elif mode == "hybrid":
         start = time.perf_counter()
-        bm25_hits = _run_bm25(idx_dir, text, k * 5)
+        bm25_hits = _run_bm25(idx_dir, text, retrieval_k * 5)
         latency["bm25"] = (time.perf_counter() - start) * 1000
 
         start = time.perf_counter()
-        dense_hits = _run_dense(idx_dir, text, k * 5)
+        dense_hits = _run_dense(idx_dir, text, retrieval_k * 5)
         latency["dense"] = (time.perf_counter() - start) * 1000
 
         start = time.perf_counter()
