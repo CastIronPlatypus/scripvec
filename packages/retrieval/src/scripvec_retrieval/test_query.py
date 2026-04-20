@@ -736,3 +736,187 @@ class TestHybridExclusionPreRRF:
         )
 
         assert result.exclude is None
+
+
+class TestCrossReferenceExpansion:
+    """Tests for cross-reference expansion per CR-015 BEAD F."""
+
+    @patch("scripvec_retrieval.query._build_cross_references")
+    @patch("scripvec_retrieval.query.get_verse")
+    @patch("scripvec_retrieval.query.open_store")
+    @patch("scripvec_retrieval.query.proximity_dedupe")
+    @patch("scripvec_retrieval.query._run_bm25")
+    @patch("scripvec_retrieval.query._resolve_index")
+    @patch("scripvec_retrieval.query.read_manifest")
+    @patch("scripvec_retrieval.query._drift_check_endpoint")
+    @patch("scripvec_retrieval.query.extract_references")
+    @patch("scripvec_retrieval.query.load_dedupe_config")
+    def test_cross_references_attached_when_expand_positive(
+        self,
+        mock_dedupe_cfg,
+        mock_extract_refs,
+        mock_drift_check,
+        mock_read_manifest,
+        mock_resolve_index,
+        mock_run_bm25,
+        mock_proximity_dedupe,
+        mock_open_store,
+        mock_get_verse,
+        mock_build_xrefs,
+    ) -> None:
+        """cross_references is attached to results when cross_ref_expand > 0."""
+        from scripvec_retrieval.config import DedupeConfig
+        from scripvec_retrieval.query import CrossReference
+
+        mock_dedupe_cfg.return_value = DedupeConfig(proximity_m=0, k_buffer=3)
+        mock_extract_refs.return_value = []
+        mock_resolve_index.return_value = ("abc123", MagicMock())
+        mock_read_manifest.return_value = MagicMock(
+            embed_endpoint="https://api.test.com",
+            embed_model="test-model",
+            embed_dim=1536,
+            has_cross_references=True,
+        )
+
+        mock_run_bm25.return_value = [("v1", 0.9)]
+        mock_proximity_dedupe.side_effect = lambda hits, m, k: (hits[:k], 0)
+
+        mock_store = MagicMock()
+        mock_open_store.return_value = mock_store
+        mock_get_verse.return_value = VerseRecord(
+            verse_id="v1",
+            ref_canonical="Test 1:1",
+            book="Test",
+            chapter=1,
+            verse=1,
+            text="Test text",
+        )
+
+        mock_build_xrefs.return_value = (
+            CrossReference(ref="Other 2:3", text="Cross ref text", tag="footnote_a"),
+        )
+
+        result = query(
+            "test query",
+            k=1,
+            mode="bm25",
+            index="abc123",
+            cross_ref_expand=3,
+            dedupe=False,
+        )
+
+        assert result.results[0].cross_references is not None
+        assert len(result.results[0].cross_references) == 1
+        assert result.results[0].cross_references[0].ref == "Other 2:3"
+        assert result.results[0].cross_references[0].tag == "footnote_a"
+
+    @patch("scripvec_retrieval.query.get_verse")
+    @patch("scripvec_retrieval.query.open_store")
+    @patch("scripvec_retrieval.query.proximity_dedupe")
+    @patch("scripvec_retrieval.query._run_bm25")
+    @patch("scripvec_retrieval.query._resolve_index")
+    @patch("scripvec_retrieval.query.read_manifest")
+    @patch("scripvec_retrieval.query._drift_check_endpoint")
+    @patch("scripvec_retrieval.query.extract_references")
+    @patch("scripvec_retrieval.query.load_dedupe_config")
+    def test_cross_references_none_when_expand_zero(
+        self,
+        mock_dedupe_cfg,
+        mock_extract_refs,
+        mock_drift_check,
+        mock_read_manifest,
+        mock_resolve_index,
+        mock_run_bm25,
+        mock_proximity_dedupe,
+        mock_open_store,
+        mock_get_verse,
+    ) -> None:
+        """cross_references is None when cross_ref_expand = 0."""
+        from scripvec_retrieval.config import DedupeConfig
+
+        mock_dedupe_cfg.return_value = DedupeConfig(proximity_m=0, k_buffer=3)
+        mock_extract_refs.return_value = []
+        mock_resolve_index.return_value = ("abc123", MagicMock())
+        mock_read_manifest.return_value = MagicMock(
+            embed_endpoint="https://api.test.com",
+            embed_model="test-model",
+            embed_dim=1536,
+            has_cross_references=True,
+        )
+
+        mock_run_bm25.return_value = [("v1", 0.9)]
+        mock_proximity_dedupe.side_effect = lambda hits, m, k: (hits[:k], 0)
+
+        mock_store = MagicMock()
+        mock_open_store.return_value = mock_store
+        mock_get_verse.return_value = VerseRecord(
+            verse_id="v1",
+            ref_canonical="Test 1:1",
+            book="Test",
+            chapter=1,
+            verse=1,
+            text="Test text",
+        )
+
+        result = query(
+            "test query",
+            k=1,
+            mode="bm25",
+            index="abc123",
+            cross_ref_expand=0,
+            dedupe=False,
+        )
+
+        assert result.results[0].cross_references is None
+
+    @patch("scripvec_retrieval.query.get_verse")
+    @patch("scripvec_retrieval.query.open_store")
+    @patch("scripvec_retrieval.query.proximity_dedupe")
+    @patch("scripvec_retrieval.query._run_bm25")
+    @patch("scripvec_retrieval.query._resolve_index")
+    @patch("scripvec_retrieval.query.read_manifest")
+    @patch("scripvec_retrieval.query._drift_check_endpoint")
+    @patch("scripvec_retrieval.query.extract_references")
+    @patch("scripvec_retrieval.query.load_dedupe_config")
+    def test_raises_when_metadata_absent(
+        self,
+        mock_dedupe_cfg,
+        mock_extract_refs,
+        mock_drift_check,
+        mock_read_manifest,
+        mock_resolve_index,
+        mock_run_bm25,
+        mock_proximity_dedupe,
+        mock_open_store,
+        mock_get_verse,
+    ) -> None:
+        """Raises RuntimeError when cross_ref_expand > 0 but no metadata."""
+        from scripvec_retrieval.config import DedupeConfig
+
+        mock_dedupe_cfg.return_value = DedupeConfig(proximity_m=0, k_buffer=3)
+        mock_extract_refs.return_value = []
+        mock_resolve_index.return_value = ("abc123", MagicMock())
+        mock_read_manifest.return_value = MagicMock(
+            embed_endpoint="https://api.test.com",
+            embed_model="test-model",
+            embed_dim=1536,
+            has_cross_references=False,
+        )
+
+        mock_run_bm25.return_value = [("v1", 0.9)]
+        mock_proximity_dedupe.side_effect = lambda hits, m, k: (hits[:k], 0)
+
+        mock_store = MagicMock()
+        mock_open_store.return_value = mock_store
+
+        with pytest.raises(RuntimeError) as exc_info:
+            query(
+                "test query",
+                k=1,
+                mode="bm25",
+                index="abc123",
+                cross_ref_expand=3,
+                dedupe=False,
+            )
+
+        assert "cross-reference metadata not present" in str(exc_info.value)

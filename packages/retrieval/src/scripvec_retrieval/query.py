@@ -21,8 +21,18 @@ from .paths import index_path, indexes_dir, resolve_latest
 from .rrf import rrf
 from .scope import BOOK_TO_VOLUME, Scope
 from .scope_filter import filter_by_scope
-from .store import dense_topk, get_verse, open_store
+from .store import StoreConn, dense_topk, get_verse, open_store
 from .window import Window, get_window
+from .cross_ref import CrossRefEntry, get_cross_references
+
+
+@dataclass(frozen=True)
+class CrossReference:
+    """A cross-reference companion attached to a result."""
+
+    ref: str
+    text: str
+    tag: str
 
 
 @dataclass(frozen=True)
@@ -37,6 +47,7 @@ class ResultRow:
     scores: dict[str, float]
     forced: bool
     window: Window | None = None
+    cross_references: tuple[CrossReference, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -208,6 +219,7 @@ def query(
     exclude: str | None = None,
     scope: Scope | None = None,
     hybrid_weight: tuple[float, float] | None = None,
+    cross_ref_expand: int = 0,
 ) -> QueryResult:
     """Execute a retrieval query with optional reference extraction.
 
@@ -411,6 +423,14 @@ def query(
 
     organic_ids = {vid for vid, _ in fused_hits}
 
+    if cross_ref_expand > 0 and not manifest.has_cross_references:
+        raise RuntimeError(
+            "cross-reference metadata not present in this index — "
+            "rebuild with cross-reference ingestion enabled"
+        )
+
+    all_result_verse_ids = extracted_verse_ids | organic_ids
+
     results: list[ResultRow] = []
     store = open_store(idx_dir / "corpus.sqlite")
     try:
@@ -420,6 +440,7 @@ def query(
                 verse = get_verse(store, verse_id)
                 is_also_organic = verse_id in organic_ids
                 win = get_window(store, verse_id, window) if window > 0 else None
+                xrefs = _build_cross_references(store, verse_id, cross_ref_expand, all_result_verse_ids)
                 results.append(ResultRow(
                     rank=len(results) + 1,
                     verse_id=verse_id,
@@ -429,6 +450,7 @@ def query(
                     scores={"forced": 1.0},
                     forced=True,
                     window=win,
+                    cross_references=xrefs,
                 ))
                 if is_also_organic:
                     fused_hits = [(vid, s) for vid, s in fused_hits if vid != verse_id]
@@ -436,6 +458,7 @@ def query(
         for verse_id, score in fused_hits:
             verse = get_verse(store, verse_id)
             win = get_window(store, verse_id, window) if window > 0 else None
+            xrefs = _build_cross_references(store, verse_id, cross_ref_expand, all_result_verse_ids)
             results.append(ResultRow(
                 rank=len(results) + 1,
                 verse_id=verse_id,
@@ -445,6 +468,7 @@ def query(
                 scores=_build_scores(verse_id, bm25_hits, dense_hits, mode),
                 forced=False,
                 window=win,
+                cross_references=xrefs,
             ))
 
     finally:
@@ -495,3 +519,35 @@ def _build_scores(
         scores["dense"] = _get_score(dense_hits, verse_id)
 
     return scores
+
+
+def _build_cross_references(
+    store: "StoreConn",
+    verse_id: str,
+    n: int,
+    top_k_verse_ids: set[str],
+) -> tuple[CrossReference, ...] | None:
+    """Build cross-references for a verse, deduped against top-K results.
+
+    Returns None if n <= 0, otherwise a tuple (possibly empty).
+    """
+    if n <= 0:
+        return None
+
+    entries = get_cross_references(store, verse_id, n + len(top_k_verse_ids))
+
+    filtered = [e for e in entries if e.target_verse_id not in top_k_verse_ids][:n]
+
+    refs: list[CrossReference] = []
+    for entry in filtered:
+        try:
+            target_verse = get_verse(store, entry.target_verse_id)
+            refs.append(CrossReference(
+                ref=target_verse.ref_canonical,
+                text=target_verse.text,
+                tag=entry.tag,
+            ))
+        except KeyError:
+            continue
+
+    return tuple(refs)
