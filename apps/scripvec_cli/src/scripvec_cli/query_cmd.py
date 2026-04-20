@@ -8,6 +8,7 @@ from typing import Annotated
 
 import typer
 
+from scripvec_retrieval.config import load_window_config
 from scripvec_retrieval.query import QueryResult, query
 
 from . import query_log
@@ -110,6 +111,7 @@ def cmd_query(
     index: Annotated[str, typer.Option("--index", "-i", help="Index hash or 'latest'")] = "latest",
     show_scores: Annotated[bool, typer.Option("--show-scores", help="Include scores in output")] = False,
     floor: Annotated[float | None, typer.Option("--floor", help="Minimum similarity score [0.0-1.0]")] = None,
+    window: Annotated[int | None, typer.Option("--window", help="Include N verses before and after each hit")] = None,
 ) -> None:
     """Search scripture verses using hybrid BM25 + dense retrieval.
 
@@ -133,6 +135,20 @@ def cmd_query(
     try:
         if k < 1:
             emit_error("bad_flag", f"k must be >= 1, got {k}", exit_code=ExitCode.USER_ERROR)
+
+        effective_window: int
+        if window is None:
+            window_config = load_window_config()
+            effective_window = window_config.window_default
+        else:
+            effective_window = window
+
+        if effective_window < 0:
+            emit_error(
+                "bad_flag",
+                f"--window must be >= 0, got {effective_window}",
+                exit_code=ExitCode.USER_ERROR,
+            )
 
         if floor is not None and (floor < 0.0 or floor > 1.0):
             emit_error(

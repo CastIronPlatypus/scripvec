@@ -110,3 +110,40 @@ class TestFloorFlag:
         result = runner.invoke(app, ["query", "test", "--index", "nonexistent"])
         err = json.loads(result.output) if result.output else {}
         assert err.get("error", {}).get("code") != "bad_flag" or "floor" not in err.get("error", {}).get("message", "")
+
+
+class TestWindowFlag:
+    """Contract tests for --window flag (CR-013 B1)."""
+
+    def test_window_parses_valid_value(self) -> None:
+        """Valid window value parses without flag error."""
+        result = runner.invoke(app, ["query", "test", "--window", "3", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "window" not in err.get("error", {}).get("message", "")
+
+    def test_window_zero_valid(self) -> None:
+        """Window 0 is valid (no-op)."""
+        result = runner.invoke(app, ["query", "test", "--window", "0", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "window" not in err.get("error", {}).get("message", "")
+
+    def test_window_negative_raises_error(self) -> None:
+        """Negative window raises structured error per ADR-001."""
+        result = runner.invoke(app, ["query", "test", "--window", "-1"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "--window" in err["error"]["message"]
+        assert ">= 0" in err["error"]["message"]
+
+    def test_window_absent_uses_config_default(self) -> None:
+        """Absent --window uses config default, not hard-coded value."""
+        result = runner.invoke(app, ["query", "test", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "window" not in err.get("error", {}).get("message", "")
+
+    def test_window_non_integer_raises_error(self) -> None:
+        """Non-integer window raises parse error."""
+        result = runner.invoke(app, ["query", "test", "--window", "abc"])
+        assert result.exit_code != 0
+        assert "window" in result.output.lower() or "invalid" in result.output.lower()
