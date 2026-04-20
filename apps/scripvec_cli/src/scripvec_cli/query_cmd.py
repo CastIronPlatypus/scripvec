@@ -10,8 +10,20 @@ import typer
 
 from scripvec_retrieval.config import load_window_config
 from scripvec_retrieval.embed import MAX_TOKENS, estimate_token_count
+from scripvec_retrieval.manifest import read_manifest
+from scripvec_retrieval.paths import index_path, resolve_latest
 from scripvec_retrieval.query import QueryResult, query
-from scripvec_retrieval.scope import CANONICAL_VOLUMES, Scope, UnknownVolumeError
+from scripvec_retrieval.scope import (
+    BOOK_TO_VOLUME,
+    CANONICAL_VOLUMES,
+    BookNotInVolumeError,
+    MalformedRangeError,
+    RangeOutsideScopeError,
+    Scope,
+    UnknownBookError,
+    UnknownVolumeError,
+    VolumeHasNoBooksError,
+)
 
 from . import query_log
 from .errors import ExitCode, emit_error
@@ -42,9 +54,10 @@ def _run_query(
     exclude: str | None = None,
     scope: Scope | None = None,
     hybrid_weight: tuple[float, float] | None = None,
+    cross_ref_expand: int = 0,
 ) -> QueryResult:
     """Execute query and return result."""
-    return query(text, k=k, mode=mode, index=index, floor=floor, window=window, dedupe=dedupe, exclude=exclude, scope=scope, hybrid_weight=hybrid_weight)
+    return query(text, k=k, mode=mode, index=index, floor=floor, window=window, dedupe=dedupe, exclude=exclude, scope=scope, hybrid_weight=hybrid_weight, cross_ref_expand=cross_ref_expand)
 
 
 def _to_log_record(
@@ -88,7 +101,31 @@ def _format_text(result: QueryResult, show_scores: bool) -> str:
     return "\n".join(lines)
 
 
-def _format_json(result: QueryResult, show_scores: bool) -> str:
+def _format_scope(scope: Scope | None) -> dict[str, str | None]:
+    """Format Scope as JSON-serializable dict with canonical values."""
+    if scope is None:
+        return {"volume": None, "book": None, "range": None}
+
+    range_str: str | None = None
+    if scope.range_refs is not None:
+        from scripvec_reference.reference import canonical
+        parts = []
+        for ref_or_range in scope.range_refs:
+            if isinstance(ref_or_range, tuple):
+                start, end = ref_or_range
+                parts.append(f"{canonical(start.book, start.chapter, start.verse)}-{canonical(end.book, end.chapter, end.verse)}")
+            else:
+                parts.append(canonical(ref_or_range.book, ref_or_range.chapter, ref_or_range.verse))
+        range_str = ", ".join(parts)
+
+    return {
+        "volume": scope.volume,
+        "book": scope.book,
+        "range": range_str,
+    }
+
+
+def _format_json(result: QueryResult, show_scores: bool, scope: Scope | None = None) -> str:
     """Format result as JSON."""
     floor_data = None
     if result.floor is not None:
@@ -130,6 +167,11 @@ def _format_json(result: QueryResult, show_scores: bool) -> str:
                 "before": [{"ref": v.ref, "text": v.text} for v in r.window.before],
                 "after": [{"ref": v.ref, "text": v.text} for v in r.window.after],
             }
+        if r.cross_references is not None:
+            res["cross_references"] = [
+                {"ref": xr.ref, "text": xr.text, "tag": xr.tag}
+                for xr in r.cross_references
+            ]
         return res
 
     data: dict = {
@@ -137,6 +179,7 @@ def _format_json(result: QueryResult, show_scores: bool) -> str:
         "mode": result.mode,
         "k": result.k,
         "index": result.index,
+        "scope": _format_scope(scope),
         "floor": floor_data,
         "dedupe": dedupe_data,
         "latency_ms": result.latency_ms,
@@ -162,6 +205,8 @@ def cmd_query(
     hybrid_weight: Annotated[str | None, typer.Option("--hybrid-weight", help="Lexical:dense weight ratio for hybrid mode (e.g., '2:1' or '1.5:0.5')")] = None,
     cross_ref_expand: Annotated[int | None, typer.Option("--cross-ref-expand", help="Expand cross-references up to N levels (0 = no expansion)")] = None,
     volume: Annotated[str | None, typer.Option("--volume", help="Filter results to a specific volume (e.g., 'book_of_mormon')")] = None,
+    book: Annotated[str | None, typer.Option("--book", help="Filter results to a specific book (e.g., 'Alma')")] = None,
+    range_str: Annotated[str | None, typer.Option("--range", help="Filter to references (e.g., 'Alma 30-42', '2 Nephi 31:1-21')")] = None,
 ) -> None:
     """Search scripture verses using hybrid BM25 + dense retrieval.
 
@@ -262,7 +307,23 @@ def cmd_query(
                 f"--cross-ref-expand must be >= 0, got {cross_ref_expand}",
                 exit_code=ExitCode.USER_ERROR,
             )
-        # cross_ref_expand 0 and None are equivalent no-ops
+
+        if cross_ref_expand is not None and cross_ref_expand > 0:
+            idx_hash = resolve_latest() if index == "latest" else index
+            idx_dir = index_path(idx_hash)
+            if not idx_dir.is_dir():
+                emit_error(
+                    "index_not_found",
+                    f"Index directory not found: {idx_dir}",
+                    exit_code=ExitCode.NOT_FOUND,
+                )
+            manifest = read_manifest(idx_dir / "manifest.json")
+            if not manifest.has_cross_references:
+                emit_error(
+                    "missing_capability",
+                    "cross-reference metadata not present in this index — rebuild with cross-reference ingestion enabled",
+                    exit_code=ExitCode.USER_ERROR,
+                )
 
         if k < 1:
             emit_error("bad_flag", f"k must be >= 1, got {k}", exit_code=ExitCode.USER_ERROR)
@@ -275,14 +336,45 @@ def cmd_query(
             )
 
         scope_obj: Scope | None = None
-        if volume is not None:
+        if volume is not None or book is not None or range_str is not None:
             try:
-                scope_obj = Scope.from_flags(volume=volume)
+                scope_obj = Scope.from_flags(volume=volume, book=book, range_str=range_str)
             except UnknownVolumeError:
                 valid_volumes = ", ".join(sorted(CANONICAL_VOLUMES))
                 emit_error(
                     "bad_flag",
                     f"Unknown volume {volume!r}. Valid volumes: {valid_volumes}",
+                    exit_code=ExitCode.USER_ERROR,
+                )
+            except UnknownBookError:
+                valid_books = ", ".join(sorted(BOOK_TO_VOLUME.keys()))
+                emit_error(
+                    "bad_flag",
+                    f"Unknown book {book!r}. Valid books: {valid_books}",
+                    exit_code=ExitCode.USER_ERROR,
+                )
+            except VolumeHasNoBooksError:
+                emit_error(
+                    "bad_flag",
+                    "D&C has sections, not books; use --range instead",
+                    exit_code=ExitCode.USER_ERROR,
+                )
+            except BookNotInVolumeError as e:
+                emit_error(
+                    "bad_flag",
+                    f"Book {e.book!r} does not belong to volume {e.volume!r}",
+                    exit_code=ExitCode.USER_ERROR,
+                )
+            except MalformedRangeError as e:
+                emit_error(
+                    "bad_flag",
+                    f"Malformed range {e.range_str!r}: {e.detail}",
+                    exit_code=ExitCode.USER_ERROR,
+                )
+            except RangeOutsideScopeError as e:
+                emit_error(
+                    "bad_flag",
+                    str(e),
                     exit_code=ExitCode.USER_ERROR,
                 )
 
@@ -300,7 +392,8 @@ def cmd_query(
                 exit_code=ExitCode.USER_ERROR,
             )
 
-        result = _run_query(text, k, mode.value, index, floor, effective_window, effective_dedupe, exclude, scope_obj, effective_hybrid_weight)
+        effective_cross_ref_expand = cross_ref_expand if cross_ref_expand is not None else 0
+        result = _run_query(text, k, mode.value, index, floor, effective_window, effective_dedupe, exclude, scope_obj, effective_hybrid_weight, effective_cross_ref_expand)
 
         query_id = query_log.new_query_id()
         log_record = _to_log_record(result, query_id)
@@ -309,7 +402,7 @@ def cmd_query(
         if format == Format.text:
             output = _format_text(result, show_scores)
         else:
-            output = _format_json(result, show_scores)
+            output = _format_json(result, show_scores, scope_obj)
 
         typer.echo(output)
 
