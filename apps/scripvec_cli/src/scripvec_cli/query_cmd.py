@@ -103,6 +103,14 @@ def _format_json(result: QueryResult, show_scores: bool) -> str:
             "dropped": result.dedupe.dropped,
         }
 
+    exclude_data = None
+    if result.exclude is not None:
+        exclude_data = {
+            "text": result.exclude.text,
+            "set_size": result.exclude.set_size,
+            "excluded_verse_ids": list(result.exclude.excluded_verse_ids),
+        }
+
     def _format_result(r: "ResultRow") -> dict:
         res: dict = {
             "rank": r.rank,
@@ -121,7 +129,7 @@ def _format_json(result: QueryResult, show_scores: bool) -> str:
             }
         return res
 
-    data = {
+    data: dict = {
         "query": result.query,
         "mode": result.mode,
         "k": result.k,
@@ -131,6 +139,8 @@ def _format_json(result: QueryResult, show_scores: bool) -> str:
         "latency_ms": result.latency_ms,
         "results": [_format_result(r) for r in result.results],
     }
+    if exclude_data is not None:
+        data["exclude"] = exclude_data
     return json.dumps(data, indent=2)
 
 

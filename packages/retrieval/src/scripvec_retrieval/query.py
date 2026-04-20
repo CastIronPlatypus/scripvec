@@ -13,7 +13,7 @@ from scripvec_reference.reference import Reference, canonical, extract_reference
 
 from .bm25 import bm25_topk, load_bm25
 from .config import load_dedupe_config, load_embed_config, load_exclude_config, load_scope_config
-from .dedupe import proximity_dedupe
+from .dedupe import ParsedVerseId, parse_verse_id, proximity_dedupe
 from .embed import embed
 from .exclude import compute_exclusion_set, filter_by_exclusion
 from .manifest import read_manifest
@@ -58,6 +58,15 @@ class DedupeInfo:
 
 
 @dataclass(frozen=True)
+class ExcludeInfo:
+    """Exclude filtering metadata for response (CR-014)."""
+
+    text: str
+    set_size: int
+    excluded_verse_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class QueryResult:
     """Complete query result with timing and metadata."""
 
@@ -69,6 +78,7 @@ class QueryResult:
     latency_ms: dict[str, float] = field(default_factory=dict)
     floor: FloorInfo | None = None
     dedupe: DedupeInfo | None = None
+    exclude: ExcludeInfo | None = None
 
 
 def _resolve_index(index: str) -> tuple[str, Path]:
@@ -197,6 +207,7 @@ def query(
     dense_hits: list[tuple[str, float]] = []
     fused_hits: list[tuple[str, float]] = []
     floor_info: FloorInfo | None = None
+    exclude_info: ExcludeInfo | None = None
 
     if scope is not None:
         scope_cfg = load_scope_config()
@@ -220,9 +231,16 @@ def query(
 
     elif mode == "dense":
         exclusion_set: set[str] = set()
+        excluded_verse_ids: list[str] = []
         if exclude is not None:
             exclude_cfg = load_exclude_config()
-            exclusion_set = set(compute_exclusion_set(exclude, exclude_cfg.exclude_m, idx_dir))
+            excluded_verse_ids = compute_exclusion_set(exclude, exclude_cfg.exclude_m, idx_dir)
+            exclusion_set = set(excluded_verse_ids)
+            exclude_info = ExcludeInfo(
+                text=exclude,
+                set_size=exclude_cfg.exclude_m,
+                excluded_verse_ids=tuple(excluded_verse_ids),
+            )
             dense_k = retrieval_k + exclude_cfg.exclude_buffer
         else:
             dense_k = retrieval_k
@@ -251,7 +269,7 @@ def query(
         latency["dense"] = (time.perf_counter() - start) * 1000
 
         start = time.perf_counter()
-        fused_hits = rrf(bm25_hits, dense_hits, top_k=k)
+        fused_hits = rrf(bm25_hits, dense_hits, top_k=retrieval_k)
         latency["fuse"] = (time.perf_counter() - start) * 1000
         if floor is not None:
             if floor > 0.0 and fused_hits:
@@ -264,6 +282,13 @@ def query(
 
     else:
         raise ValueError(f"Unknown mode: {mode!r}. Must be 'hybrid', 'bm25', or 'dense'.")
+
+    if scope is not None:
+        fused_hits = [
+            (vid, score)
+            for vid, score in fused_hits
+            if filter_by_scope([parse_verse_id(vid)], scope)
+        ]
 
     dedupe_cfg = load_dedupe_config()
     dedupe_info: DedupeInfo
@@ -341,6 +366,7 @@ def query(
         latency_ms=latency,
         floor=floor_info,
         dedupe=dedupe_info,
+        exclude=exclude_info,
     )
 
 
