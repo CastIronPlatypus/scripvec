@@ -31,6 +31,15 @@ class ResultRow:
 
 
 @dataclass(frozen=True)
+class FloorInfo:
+    """Floor filtering metadata for response."""
+
+    value: float
+    interpretation: str
+    effective_threshold: float
+
+
+@dataclass(frozen=True)
 class QueryResult:
     """Complete query result with timing and metadata."""
 
@@ -40,6 +49,7 @@ class QueryResult:
     index: str
     results: tuple[ResultRow, ...]
     latency_ms: dict[str, float] = field(default_factory=dict)
+    floor: FloorInfo | None = None
 
 
 def _resolve_index(index: str) -> tuple[str, Path]:
@@ -146,23 +156,31 @@ def query(
     bm25_hits: list[tuple[str, float]] = []
     dense_hits: list[tuple[str, float]] = []
     fused_hits: list[tuple[str, float]] = []
+    floor_info: FloorInfo | None = None
 
     if mode == "bm25":
         start = time.perf_counter()
         bm25_hits = _run_bm25(idx_dir, text, k)
         latency["bm25"] = (time.perf_counter() - start) * 1000
-        if floor is not None and floor > 0.0 and bm25_hits:
-            top_score = bm25_hits[0][1]
-            threshold = floor * top_score
-            bm25_hits = [(vid, score) for vid, score in bm25_hits if score >= threshold]
+        if floor is not None:
+            if floor > 0.0 and bm25_hits:
+                top_score = bm25_hits[0][1]
+                effective_threshold = floor * top_score
+                bm25_hits = [(vid, score) for vid, score in bm25_hits if score >= effective_threshold]
+            else:
+                effective_threshold = 0.0 if not bm25_hits else floor * bm25_hits[0][1]
+            floor_info = FloorInfo(value=floor, interpretation="relative", effective_threshold=effective_threshold)
         fused_hits = bm25_hits
 
     elif mode == "dense":
         start = time.perf_counter()
         dense_hits = _run_dense(idx_dir, text, k)
         latency["dense"] = (time.perf_counter() - start) * 1000
-        if floor is not None and floor > 0.0:
-            dense_hits = [(vid, score) for vid, score in dense_hits if score >= floor]
+        if floor is not None:
+            effective_threshold = floor
+            if floor > 0.0:
+                dense_hits = [(vid, score) for vid, score in dense_hits if score >= floor]
+            floor_info = FloorInfo(value=floor, interpretation="absolute", effective_threshold=effective_threshold)
         fused_hits = dense_hits
 
     elif mode == "hybrid":
@@ -177,10 +195,14 @@ def query(
         start = time.perf_counter()
         fused_hits = rrf(bm25_hits, dense_hits, top_k=k)
         latency["fuse"] = (time.perf_counter() - start) * 1000
-        if floor is not None and floor > 0.0 and fused_hits:
-            top_rrf = fused_hits[0][1]
-            threshold = floor * top_rrf
-            fused_hits = [(vid, score) for vid, score in fused_hits if score >= threshold]
+        if floor is not None:
+            if floor > 0.0 and fused_hits:
+                top_rrf = fused_hits[0][1]
+                effective_threshold = floor * top_rrf
+                fused_hits = [(vid, score) for vid, score in fused_hits if score >= effective_threshold]
+            else:
+                effective_threshold = 0.0 if not fused_hits else floor * fused_hits[0][1]
+            floor_info = FloorInfo(value=floor, interpretation="relative", effective_threshold=effective_threshold)
 
     else:
         raise ValueError(f"Unknown mode: {mode!r}. Must be 'hybrid', 'bm25', or 'dense'.")
@@ -231,6 +253,7 @@ def query(
         index=hash_hex,
         results=tuple(results),
         latency_ms=latency,
+        floor=floor_info,
     )
 
 

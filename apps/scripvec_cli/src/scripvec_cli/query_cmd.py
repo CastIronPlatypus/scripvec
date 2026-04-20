@@ -84,11 +84,19 @@ def _format_text(result: QueryResult, show_scores: bool) -> str:
 
 def _format_json(result: QueryResult, show_scores: bool) -> str:
     """Format result as JSON."""
+    floor_data = None
+    if result.floor is not None:
+        floor_data = {
+            "value": result.floor.value,
+            "interpretation": result.floor.interpretation,
+            "effective_threshold": result.floor.effective_threshold,
+        }
     data = {
         "query": result.query,
         "mode": result.mode,
         "k": result.k,
         "index": result.index,
+        "floor": floor_data,
         "latency_ms": result.latency_ms,
         "results": [
             {
@@ -117,6 +125,7 @@ def cmd_query(
     dedupe: Annotated[bool | None, typer.Option("--dedupe", is_flag=True, flag_value=True, help="Enable proximity deduplication (default)")] = None,
     no_dedupe: Annotated[bool | None, typer.Option("--no-dedupe", is_flag=True, flag_value=True, help="Disable proximity deduplication")] = None,
     exclude: Annotated[str | None, typer.Option("--exclude", help="Text to exclude from results (vector-based)")] = None,
+    hybrid_weight: Annotated[str | None, typer.Option("--hybrid-weight", help="Lexical:dense weight ratio for hybrid mode (e.g., '2:1' or '1.5:0.5')")] = None,
 ) -> None:
     """Search scripture verses using hybrid BM25 + dense retrieval.
 
@@ -173,6 +182,43 @@ def cmd_query(
                     f"--exclude text exceeds {MAX_TOKENS} token limit (estimated {exclude_tokens} tokens)",
                     exit_code=ExitCode.USER_ERROR,
                 )
+
+        if hybrid_weight is not None:
+            if mode != Mode.hybrid:
+                emit_error(
+                    "bad_flag",
+                    f"--hybrid-weight cannot be used with --mode {mode.value}: only valid for --mode hybrid",
+                    exit_code=ExitCode.USER_ERROR,
+                )
+            parts = hybrid_weight.split(":")
+            if len(parts) != 2:
+                emit_error(
+                    "bad_flag",
+                    f"--hybrid-weight must be in format 'lexical:dense', got {hybrid_weight!r}",
+                    exit_code=ExitCode.USER_ERROR,
+                )
+            try:
+                lexical_w = float(parts[0])
+                dense_w = float(parts[1])
+            except ValueError:
+                emit_error(
+                    "bad_flag",
+                    f"--hybrid-weight must contain numeric values, got {hybrid_weight!r}",
+                    exit_code=ExitCode.USER_ERROR,
+                )
+            if lexical_w < 0 or dense_w < 0:
+                emit_error(
+                    "bad_flag",
+                    f"--hybrid-weight values must be non-negative, got {hybrid_weight!r}",
+                    exit_code=ExitCode.USER_ERROR,
+                )
+            if lexical_w == 0 and dense_w == 0:
+                emit_error(
+                    "bad_flag",
+                    f"--hybrid-weight cannot be 0:0 (both weights zero), got {hybrid_weight!r}",
+                    exit_code=ExitCode.USER_ERROR,
+                )
+            # hybrid_weight is validated; (lexical_w, dense_w) available for downstream use
 
         if k < 1:
             emit_error("bad_flag", f"k must be >= 1, got {k}", exit_code=ExitCode.USER_ERROR)

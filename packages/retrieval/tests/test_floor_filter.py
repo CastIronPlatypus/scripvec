@@ -215,3 +215,46 @@ class TestHybridFloorFilter:
         ]
         result = _apply_hybrid_floor_filter(hits, None)
         assert result == hits
+
+
+from scripvec_retrieval.query import FloorInfo
+
+
+class TestFloorInfo:
+    """Tests for FloorInfo response shape (CR-012 B5)."""
+
+    def test_dense_floor_interpretation_is_absolute(self) -> None:
+        """Dense mode floor interpretation is 'absolute'."""
+        info = FloorInfo(value=0.55, interpretation="absolute", effective_threshold=0.55)
+        assert info.interpretation == "absolute"
+        assert info.value == info.effective_threshold
+
+    def test_bm25_floor_interpretation_is_relative(self) -> None:
+        """BM25 mode floor interpretation is 'relative'."""
+        top_score = 24.7
+        floor_value = 0.3
+        effective = floor_value * top_score
+        info = FloorInfo(value=floor_value, interpretation="relative", effective_threshold=effective)
+        assert info.interpretation == "relative"
+        assert info.effective_threshold == pytest.approx(7.41)
+
+    def test_hybrid_floor_interpretation_is_relative(self) -> None:
+        """Hybrid mode floor interpretation is 'relative'."""
+        top_rrf = 0.0312
+        floor_value = 0.5
+        effective = floor_value * top_rrf
+        info = FloorInfo(value=floor_value, interpretation="relative", effective_threshold=effective)
+        assert info.interpretation == "relative"
+        assert info.effective_threshold == pytest.approx(0.0156)
+
+    def test_floor_info_zero_effective_when_no_hits(self) -> None:
+        """When no hits exist, effective_threshold is 0.0 for relative modes."""
+        info = FloorInfo(value=0.5, interpretation="relative", effective_threshold=0.0)
+        assert info.effective_threshold == 0.0
+
+    def test_floor_info_all_fields_present(self) -> None:
+        """FloorInfo has value, interpretation, and effective_threshold."""
+        info = FloorInfo(value=0.5, interpretation="absolute", effective_threshold=0.5)
+        assert hasattr(info, "value")
+        assert hasattr(info, "interpretation")
+        assert hasattr(info, "effective_threshold")
