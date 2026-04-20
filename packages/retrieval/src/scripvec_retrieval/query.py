@@ -177,6 +177,10 @@ def query(
         start = time.perf_counter()
         fused_hits = rrf(bm25_hits, dense_hits, top_k=k)
         latency["fuse"] = (time.perf_counter() - start) * 1000
+        if floor is not None and floor > 0.0 and fused_hits:
+            top_rrf = fused_hits[0][1]
+            threshold = floor * top_rrf
+            fused_hits = [(vid, score) for vid, score in fused_hits if score >= threshold]
 
     else:
         raise ValueError(f"Unknown mode: {mode!r}. Must be 'hybrid', 'bm25', or 'dense'.")

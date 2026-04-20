@@ -160,3 +160,58 @@ class TestBM25FloorFilter:
         threshold = 0.9 * 24.7
         assert len(result) == 1
         assert result[0][0] == "v1"
+
+
+def _apply_hybrid_floor_filter(
+    hits: list[tuple[str, float]], floor: float | None
+) -> list[tuple[str, float]]:
+    """Apply hybrid-mode relative floor filtering (ratio of top RRF score)."""
+    if floor is not None and floor > 0.0 and hits:
+        top_rrf = hits[0][1]
+        threshold = floor * top_rrf
+        return [(vid, score) for vid, score in hits if score >= threshold]
+    return hits
+
+
+class TestHybridFloorFilter:
+    """Tests for hybrid-mode relative floor culling (CR-012 B4)."""
+
+    def test_floor_drops_below_ratio_of_top_rrf(self) -> None:
+        """Top RRF 0.0312, floor 0.5 drops all below 0.0156."""
+        hits = [
+            ("v1", 0.0312),
+            ("v2", 0.0280),
+            ("v3", 0.0200),
+            ("v4", 0.0156),
+            ("v5", 0.0100),
+            ("v6", 0.0050),
+        ]
+        result = _apply_hybrid_floor_filter(hits, 0.5)
+        assert len(result) == 4
+        assert [vid for vid, _ in result] == ["v1", "v2", "v3", "v4"]
+        threshold = 0.5 * 0.0312
+        assert all(score >= threshold for _, score in result)
+
+    def test_zero_hits_returns_empty_no_error(self) -> None:
+        """Zero-hit query with floor returns empty cleanly."""
+        hits: list[tuple[str, float]] = []
+        result = _apply_hybrid_floor_filter(hits, 0.5)
+        assert result == []
+
+    def test_floor_zero_is_noop(self) -> None:
+        """Floor 0.0 keeps all hits."""
+        hits = [
+            ("v1", 0.0312),
+            ("v2", 0.0050),
+        ]
+        result = _apply_hybrid_floor_filter(hits, 0.0)
+        assert result == hits
+
+    def test_floor_none_is_noop(self) -> None:
+        """Floor None keeps all hits."""
+        hits = [
+            ("v1", 0.0312),
+            ("v2", 0.0050),
+        ]
+        result = _apply_hybrid_floor_filter(hits, None)
+        assert result == hits
