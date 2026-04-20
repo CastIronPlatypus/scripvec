@@ -174,6 +174,15 @@ def _format_json(result: QueryResult, show_scores: bool, scope: Scope | None = N
             ]
         return res
 
+    hybrid_weight_data = None
+    if result.hybrid_weight is not None:
+        hybrid_weight_data = {
+            "lexical": result.hybrid_weight.lexical,
+            "dense": result.hybrid_weight.dense,
+        }
+        if result.hybrid_weight.from_config:
+            hybrid_weight_data["from_config"] = True
+
     data: dict = {
         "query": result.query,
         "mode": result.mode,
@@ -187,6 +196,8 @@ def _format_json(result: QueryResult, show_scores: bool, scope: Scope | None = N
     }
     if exclude_data is not None:
         data["exclude"] = exclude_data
+    if hybrid_weight_data is not None:
+        data["hybrid_weight"] = hybrid_weight_data
     return json.dumps(data, indent=2)
 
 
@@ -202,8 +213,8 @@ def cmd_query(
     dedupe: Annotated[bool | None, typer.Option("--dedupe", is_flag=True, flag_value=True, help="Enable proximity deduplication (default)")] = None,
     no_dedupe: Annotated[bool | None, typer.Option("--no-dedupe", is_flag=True, flag_value=True, help="Disable proximity deduplication")] = None,
     exclude: Annotated[str | None, typer.Option("--exclude", help="Text to exclude from results (vector-based)")] = None,
-    hybrid_weight: Annotated[str | None, typer.Option("--hybrid-weight", help="Lexical:dense weight ratio for hybrid mode (e.g., '2:1' or '1.5:0.5')")] = None,
-    cross_ref_expand: Annotated[int | None, typer.Option("--cross-ref-expand", help="Expand cross-references up to N levels (0 = no expansion)")] = None,
+    hybrid_weight: Annotated[str | None, typer.Option("--hybrid-weight", help="Lexical:dense weight ratio for hybrid mode (e.g., '2:1'). Requires --mode hybrid.")] = None,
+    cross_ref_expand: Annotated[int | None, typer.Option("--cross-ref-expand", help="Expand cross-references up to N levels (0 = no expansion). Requires index with cross-reference metadata; if missing, fails with 'cross-reference metadata not present in this index — rebuild with cross-reference ingestion enabled'.")] = None,
     volume: Annotated[str | None, typer.Option("--volume", help="Filter results to a specific volume (e.g., 'book_of_mormon')")] = None,
     book: Annotated[str | None, typer.Option("--book", help="Filter results to a specific book (e.g., 'Alma')")] = None,
     range_str: Annotated[str | None, typer.Option("--range", help="Filter to references (e.g., 'Alma 30-42', '2 Nephi 31:1-21')")] = None,

@@ -78,6 +78,15 @@ class ExcludeInfo:
 
 
 @dataclass(frozen=True)
+class HybridWeightInfo:
+    """Applied hybrid weight metadata for response (CR-015)."""
+
+    lexical: float
+    dense: float
+    from_config: bool
+
+
+@dataclass(frozen=True)
 class QueryResult:
     """Complete query result with timing and metadata."""
 
@@ -90,6 +99,7 @@ class QueryResult:
     floor: FloorInfo | None = None
     dedupe: DedupeInfo | None = None
     exclude: ExcludeInfo | None = None
+    hybrid_weight: HybridWeightInfo | None = None
 
 
 def _canonical_book_to_slug(book: str) -> str:
@@ -288,6 +298,7 @@ def query(
     fused_hits: list[tuple[str, float]] = []
     floor_info: FloorInfo | None = None
     exclude_info: ExcludeInfo | None = None
+    hybrid_weight_info: HybridWeightInfo | None = None
 
     if scope is not None:
         scope_cfg = load_scope_config()
@@ -357,9 +368,11 @@ def query(
 
         if hybrid_weight is not None:
             bm25_w, dense_w = hybrid_weight
+            hybrid_weight_info = HybridWeightInfo(lexical=bm25_w, dense=dense_w, from_config=False)
         else:
             hybrid_cfg = load_hybrid_config()
             bm25_w, dense_w = hybrid_cfg.bm25_weight, hybrid_cfg.dense_weight
+            hybrid_weight_info = HybridWeightInfo(lexical=bm25_w, dense=dense_w, from_config=True)
 
         start = time.perf_counter()
         bm25_hits = _run_bm25(idx_dir, text, hybrid_k)
@@ -486,6 +499,7 @@ def query(
         floor=floor_info,
         dedupe=dedupe_info,
         exclude=exclude_info,
+        hybrid_weight=hybrid_weight_info,
     )
 
 
