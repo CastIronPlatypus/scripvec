@@ -12,7 +12,7 @@ _logger = logging.getLogger(__name__)
 from scripvec_reference.reference import Reference, canonical, extract_references
 
 from .bm25 import bm25_topk, load_bm25
-from .config import load_dedupe_config, load_embed_config, load_exclude_config, load_scope_config
+from .config import load_dedupe_config, load_embed_config, load_exclude_config, load_hybrid_config, load_scope_config
 from .dedupe import ParsedVerseId, parse_verse_id, proximity_dedupe
 from .embed import embed
 from .exclude import compute_exclusion_set, filter_by_exclusion
@@ -207,6 +207,7 @@ def query(
     dedupe: bool = True,
     exclude: str | None = None,
     scope: Scope | None = None,
+    hybrid_weight: tuple[float, float] | None = None,
 ) -> QueryResult:
     """Execute a retrieval query with optional reference extraction.
 
@@ -220,6 +221,8 @@ def query(
         dedupe: Whether to apply proximity deduplication (default True).
         exclude: Text to exclude from results via vector similarity (dense mode only).
         scope: Optional scope filter to restrict results by volume/book/range.
+        hybrid_weight: Optional (bm25_weight, dense_weight) tuple for hybrid RRF.
+            None uses config defaults. Only applies in hybrid mode.
 
     Returns:
         QueryResult with results and timing.
@@ -340,6 +343,12 @@ def query(
         else:
             hybrid_k = retrieval_k * 5
 
+        if hybrid_weight is not None:
+            bm25_w, dense_w = hybrid_weight
+        else:
+            hybrid_cfg = load_hybrid_config()
+            bm25_w, dense_w = hybrid_cfg.bm25_weight, hybrid_cfg.dense_weight
+
         start = time.perf_counter()
         bm25_hits = _run_bm25(idx_dir, text, hybrid_k)
         latency["bm25"] = (time.perf_counter() - start) * 1000
@@ -355,7 +364,7 @@ def query(
             dense_hits = filter_by_exclusion(dense_hits, exclusion_set)
 
         start = time.perf_counter()
-        fused_hits = rrf(bm25_hits, dense_hits, top_k=retrieval_k)
+        fused_hits = rrf(bm25_hits, dense_hits, top_k=retrieval_k, bm25_weight=bm25_w, dense_weight=dense_w)
         latency["fuse"] = (time.perf_counter() - start) * 1000
         if floor is not None:
             if floor > 0.0 and fused_hits:

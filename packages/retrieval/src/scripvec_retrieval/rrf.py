@@ -9,6 +9,8 @@ def rrf(
     *,
     k: int = 60,
     top_k: int = 10,
+    bm25_weight: float = 1.0,
+    dense_weight: float = 1.0,
 ) -> list[tuple[str, float]]:
     """Fuse BM25 and dense retrieval results using Reciprocal Rank Fusion.
 
@@ -17,6 +19,8 @@ def rrf(
         dense_hits: Ranked list of (verse_id, score) from dense retrieval.
         k: RRF smoothing constant (default 60).
         top_k: Number of results to return.
+        bm25_weight: Weight multiplier for BM25 rank contributions (default 1.0).
+        dense_weight: Weight multiplier for dense rank contributions (default 1.0).
 
     Returns:
         List of (verse_id, score) tuples sorted by descending score,
@@ -33,10 +37,10 @@ def rrf(
     scores: dict[str, float] = {}
 
     for rank, (verse_id, _) in enumerate(bm25_hits, start=1):
-        scores[verse_id] = scores.get(verse_id, 0.0) + 1.0 / (k + rank)
+        scores[verse_id] = scores.get(verse_id, 0.0) + bm25_weight / (k + rank)
 
     for rank, (verse_id, _) in enumerate(dense_hits, start=1):
-        scores[verse_id] = scores.get(verse_id, 0.0) + 1.0 / (k + rank)
+        scores[verse_id] = scores.get(verse_id, 0.0) + dense_weight / (k + rank)
 
     sorted_results = sorted(
         scores.items(),

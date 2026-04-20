@@ -253,3 +253,51 @@ def load_dedupe_config() -> DedupeConfig:
         raise RuntimeError(f"dedupe_k_buffer must be an integer, got {k_buffer_raw!r}") from e
 
     return DedupeConfig(proximity_m=proximity_m, k_buffer=k_buffer)
+
+
+_HYBRID_BM25_WEIGHT_DEFAULT = 1.0
+_HYBRID_DENSE_WEIGHT_DEFAULT = 1.0
+
+
+@dataclass(frozen=True)
+class HybridConfig:
+    """Immutable hybrid fusion configuration per CR-015."""
+
+    bm25_weight: float
+    dense_weight: float
+
+    def __post_init__(self) -> None:
+        if self.bm25_weight < 0:
+            raise ValueError("bm25_weight must be >= 0")
+        if self.dense_weight < 0:
+            raise ValueError("dense_weight must be >= 0")
+        if self.bm25_weight == 0 and self.dense_weight == 0:
+            raise ValueError("At least one weight must be > 0")
+
+
+def load_hybrid_config() -> HybridConfig:
+    """Load hybrid fusion config from optional config file, with defaults.
+
+    Config keys (optional, fall back to defaults):
+        hybrid_bm25_weight - weight multiplier for BM25 in hybrid RRF
+        hybrid_dense_weight - weight multiplier for dense in hybrid RRF
+
+    Raises:
+        RuntimeError: if values are malformed (per ADR-001)
+    """
+    file_config = _read_optional_config_file()
+
+    bm25_weight_raw = file_config.get("hybrid_bm25_weight", _HYBRID_BM25_WEIGHT_DEFAULT)
+    dense_weight_raw = file_config.get("hybrid_dense_weight", _HYBRID_DENSE_WEIGHT_DEFAULT)
+
+    try:
+        bm25_weight = float(bm25_weight_raw)
+    except (ValueError, TypeError) as e:
+        raise RuntimeError(f"hybrid_bm25_weight must be a number, got {bm25_weight_raw!r}") from e
+
+    try:
+        dense_weight = float(dense_weight_raw)
+    except (ValueError, TypeError) as e:
+        raise RuntimeError(f"hybrid_dense_weight must be a number, got {dense_weight_raw!r}") from e
+
+    return HybridConfig(bm25_weight=bm25_weight, dense_weight=dense_weight)

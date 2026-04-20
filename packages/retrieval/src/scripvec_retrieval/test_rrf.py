@@ -139,3 +139,67 @@ class TestDeterminism:
         result2 = rrf(bm25, dense, k=60, top_k=10)
 
         assert result1 == result2
+
+
+class TestWeightedRRF:
+    """Test weighted RRF per CR-015."""
+
+    def test_default_weights_identical_to_unweighted(self) -> None:
+        """Default weights (1:1) produce identical output to unweighted call."""
+        bm25 = [("verse-a", 1.0), ("verse-b", 0.9)]
+        dense = [("verse-b", 1.0), ("verse-a", 0.9)]
+
+        unweighted = rrf(bm25, dense, k=60, top_k=10)
+        weighted = rrf(bm25, dense, k=60, top_k=10, bm25_weight=1.0, dense_weight=1.0)
+
+        assert unweighted == weighted
+
+    def test_bm25_only_weight_produces_bm25_ranking(self) -> None:
+        """Weight 1:0 produces ranking identical to BM25 alone."""
+        bm25 = [("verse-a", 1.0), ("verse-b", 0.9), ("verse-c", 0.8)]
+        dense = [("verse-c", 1.0), ("verse-b", 0.9), ("verse-a", 0.8)]
+
+        result = rrf(bm25, dense, k=60, top_k=10, bm25_weight=1.0, dense_weight=0.0)
+
+        assert [vid for vid, _ in result] == ["verse-a", "verse-b", "verse-c"]
+
+    def test_dense_only_weight_produces_dense_ranking(self) -> None:
+        """Weight 0:1 produces ranking identical to dense alone."""
+        bm25 = [("verse-a", 1.0), ("verse-b", 0.9), ("verse-c", 0.8)]
+        dense = [("verse-c", 1.0), ("verse-b", 0.9), ("verse-a", 0.8)]
+
+        result = rrf(bm25, dense, k=60, top_k=10, bm25_weight=0.0, dense_weight=1.0)
+
+        assert [vid for vid, _ in result] == ["verse-c", "verse-b", "verse-a"]
+
+    def test_high_bm25_weight_shifts_toward_bm25_ranking(self) -> None:
+        """Weight 10:1 produces ranking closer to BM25 than 1:1."""
+        bm25 = [("verse-a", 1.0), ("verse-b", 0.9)]
+        dense = [("verse-b", 1.0), ("verse-a", 0.9)]
+
+        balanced = rrf(bm25, dense, k=60, top_k=10, bm25_weight=1.0, dense_weight=1.0)
+        bm25_heavy = rrf(bm25, dense, k=60, top_k=10, bm25_weight=10.0, dense_weight=1.0)
+
+        bm25_order = ["verse-a", "verse-b"]
+        assert [vid for vid, _ in bm25_heavy] == bm25_order
+
+    def test_high_dense_weight_shifts_toward_dense_ranking(self) -> None:
+        """Weight 1:10 produces ranking closer to dense than 1:1."""
+        bm25 = [("verse-a", 1.0), ("verse-b", 0.9)]
+        dense = [("verse-b", 1.0), ("verse-a", 0.9)]
+
+        balanced = rrf(bm25, dense, k=60, top_k=10, bm25_weight=1.0, dense_weight=1.0)
+        dense_heavy = rrf(bm25, dense, k=60, top_k=10, bm25_weight=1.0, dense_weight=10.0)
+
+        dense_order = ["verse-b", "verse-a"]
+        assert [vid for vid, _ in dense_heavy] == dense_order
+
+    def test_weighted_scores_calculated_correctly(self) -> None:
+        """Weighted scores are weight * 1/(k+rank) for each source."""
+        bm25 = [("verse-a", 1.0)]
+        dense = [("verse-a", 1.0)]
+
+        result = rrf(bm25, dense, k=60, top_k=10, bm25_weight=2.0, dense_weight=3.0)
+
+        expected_score = 2.0 / 61 + 3.0 / 61
+        assert result[0][1] == pytest.approx(expected_score)

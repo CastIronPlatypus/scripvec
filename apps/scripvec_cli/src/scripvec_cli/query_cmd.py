@@ -11,6 +11,7 @@ import typer
 from scripvec_retrieval.config import load_window_config
 from scripvec_retrieval.embed import MAX_TOKENS, estimate_token_count
 from scripvec_retrieval.query import QueryResult, query
+from scripvec_retrieval.scope import CANONICAL_VOLUMES, Scope, UnknownVolumeError
 
 from . import query_log
 from .errors import ExitCode, emit_error
@@ -39,9 +40,11 @@ def _run_query(
     window: int = 0,
     dedupe: bool = True,
     exclude: str | None = None,
+    scope: Scope | None = None,
+    hybrid_weight: tuple[float, float] | None = None,
 ) -> QueryResult:
     """Execute query and return result."""
-    return query(text, k=k, mode=mode, index=index, floor=floor, window=window, dedupe=dedupe, exclude=exclude)
+    return query(text, k=k, mode=mode, index=index, floor=floor, window=window, dedupe=dedupe, exclude=exclude, scope=scope, hybrid_weight=hybrid_weight)
 
 
 def _to_log_record(
@@ -158,6 +161,7 @@ def cmd_query(
     exclude: Annotated[str | None, typer.Option("--exclude", help="Text to exclude from results (vector-based)")] = None,
     hybrid_weight: Annotated[str | None, typer.Option("--hybrid-weight", help="Lexical:dense weight ratio for hybrid mode (e.g., '2:1' or '1.5:0.5')")] = None,
     cross_ref_expand: Annotated[int | None, typer.Option("--cross-ref-expand", help="Expand cross-references up to N levels (0 = no expansion)")] = None,
+    volume: Annotated[str | None, typer.Option("--volume", help="Filter results to a specific volume (e.g., 'book_of_mormon')")] = None,
 ) -> None:
     """Search scripture verses using hybrid BM25 + dense retrieval.
 
@@ -248,7 +252,9 @@ def cmd_query(
                     f"--hybrid-weight cannot be 0:0 (both weights zero), got {hybrid_weight!r}",
                     exit_code=ExitCode.USER_ERROR,
                 )
-            # hybrid_weight is validated; (lexical_w, dense_w) available for downstream use
+            effective_hybrid_weight: tuple[float, float] | None = (lexical_w, dense_w)
+        else:
+            effective_hybrid_weight = None
 
         if cross_ref_expand is not None and cross_ref_expand < 0:
             emit_error(
@@ -268,6 +274,18 @@ def cmd_query(
                 exit_code=ExitCode.USER_ERROR,
             )
 
+        scope_obj: Scope | None = None
+        if volume is not None:
+            try:
+                scope_obj = Scope.from_flags(volume=volume)
+            except UnknownVolumeError:
+                valid_volumes = ", ".join(sorted(CANONICAL_VOLUMES))
+                emit_error(
+                    "bad_flag",
+                    f"Unknown volume {volume!r}. Valid volumes: {valid_volumes}",
+                    exit_code=ExitCode.USER_ERROR,
+                )
+
         effective_window: int
         if window is None:
             window_config = load_window_config()
@@ -282,7 +300,7 @@ def cmd_query(
                 exit_code=ExitCode.USER_ERROR,
             )
 
-        result = _run_query(text, k, mode.value, index, floor, effective_window, effective_dedupe, exclude)
+        result = _run_query(text, k, mode.value, index, floor, effective_window, effective_dedupe, exclude, scope_obj, effective_hybrid_weight)
 
         query_id = query_log.new_query_id()
         log_record = _to_log_record(result, query_id)
