@@ -109,6 +109,7 @@ def cmd_query(
     format: Annotated[Format, typer.Option("--format", "-f", help="Output format")] = Format.json,
     index: Annotated[str, typer.Option("--index", "-i", help="Index hash or 'latest'")] = "latest",
     show_scores: Annotated[bool, typer.Option("--show-scores", help="Include scores in output")] = False,
+    floor: Annotated[float | None, typer.Option("--floor", help="Minimum similarity score [0.0-1.0]")] = None,
 ) -> None:
     """Search scripture verses using hybrid BM25 + dense retrieval.
 
@@ -132,6 +133,13 @@ def cmd_query(
     try:
         if k < 1:
             emit_error("bad_flag", f"k must be >= 1, got {k}", exit_code=ExitCode.USER_ERROR)
+
+        if floor is not None and (floor < 0.0 or floor > 1.0):
+            emit_error(
+                "bad_flag",
+                f"--floor must be in range [0.0, 1.0] for --mode {mode.value}, got {floor}",
+                exit_code=ExitCode.USER_ERROR,
+            )
 
         result = _run_query(text, k, mode.value, index)
 
