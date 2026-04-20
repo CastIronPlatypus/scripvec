@@ -19,7 +19,7 @@ from .exclude import compute_exclusion_set, filter_by_exclusion
 from .manifest import read_manifest
 from .paths import index_path, indexes_dir, resolve_latest
 from .rrf import rrf
-from .scope import Scope
+from .scope import BOOK_TO_VOLUME, Scope
 from .scope_filter import filter_by_scope
 from .store import dense_topk, get_verse, open_store
 from .window import Window, get_window
@@ -79,6 +79,71 @@ class QueryResult:
     floor: FloorInfo | None = None
     dedupe: DedupeInfo | None = None
     exclude: ExcludeInfo | None = None
+
+
+def _canonical_book_to_slug(book: str) -> str:
+    """Convert canonical book name to slug format for verse_id comparison."""
+    return book.lower().replace(" ", "-").replace("&", "").replace(":", "-")
+
+
+SLUG_TO_CANONICAL_BOOK: dict[str, str] = {
+    _canonical_book_to_slug(book): book for book in BOOK_TO_VOLUME
+}
+
+
+def _parsed_verse_in_scope(parsed: ParsedVerseId, scope: Scope) -> bool:
+    """Check if a parsed verse_id is within scope."""
+    canonical_book = SLUG_TO_CANONICAL_BOOK.get(parsed.book)
+    if canonical_book is None:
+        return False
+
+    if scope.volume is not None:
+        hit_volume = BOOK_TO_VOLUME.get(canonical_book)
+        if hit_volume != scope.volume:
+            return False
+
+    if scope.book is not None:
+        if canonical_book != scope.book:
+            return False
+
+    if scope.range_refs is not None:
+        from scripvec_reference.reference import Reference, Range
+
+        in_range = False
+        for ref_or_range in scope.range_refs:
+            if isinstance(ref_or_range, tuple):
+                start, end = ref_or_range
+                if canonical_book != start.book or canonical_book != end.book:
+                    continue
+                if start.chapter == end.chapter:
+                    if (
+                        parsed.chapter == start.chapter
+                        and parsed.verse >= start.verse
+                        and parsed.verse <= end.verse
+                    ):
+                        in_range = True
+                        break
+                else:
+                    if parsed.chapter < start.chapter or parsed.chapter > end.chapter:
+                        continue
+                    if parsed.chapter == start.chapter and parsed.verse < start.verse:
+                        continue
+                    if parsed.chapter == end.chapter and parsed.verse > end.verse:
+                        continue
+                    in_range = True
+                    break
+            else:
+                if (
+                    canonical_book == ref_or_range.book
+                    and parsed.chapter == ref_or_range.chapter
+                    and parsed.verse == ref_or_range.verse
+                ):
+                    in_range = True
+                    break
+        if not in_range:
+            return False
+
+    return True
 
 
 def _resolve_index(index: str) -> tuple[str, Path]:
@@ -260,13 +325,34 @@ def query(
         fused_hits = dense_hits
 
     elif mode == "hybrid":
-        start = time.perf_counter()
-        bm25_hits = _run_bm25(idx_dir, text, retrieval_k * 5)
-        latency["bm25"] = (time.perf_counter() - start) * 1000
+        exclusion_set: set[str] = set()
+        excluded_verse_ids: list[str] = []
+        if exclude is not None:
+            exclude_cfg = load_exclude_config()
+            excluded_verse_ids = compute_exclusion_set(exclude, exclude_cfg.exclude_m, idx_dir)
+            exclusion_set = set(excluded_verse_ids)
+            exclude_info = ExcludeInfo(
+                text=exclude,
+                set_size=exclude_cfg.exclude_m,
+                excluded_verse_ids=tuple(excluded_verse_ids),
+            )
+            hybrid_k = retrieval_k * 5 + exclude_cfg.exclude_buffer
+        else:
+            hybrid_k = retrieval_k * 5
 
         start = time.perf_counter()
-        dense_hits = _run_dense(idx_dir, text, retrieval_k * 5)
+        bm25_hits = _run_bm25(idx_dir, text, hybrid_k)
+        latency["bm25"] = (time.perf_counter() - start) * 1000
+
+        if exclusion_set:
+            bm25_hits = filter_by_exclusion(bm25_hits, exclusion_set)
+
+        start = time.perf_counter()
+        dense_hits = _run_dense(idx_dir, text, hybrid_k)
         latency["dense"] = (time.perf_counter() - start) * 1000
+
+        if exclusion_set:
+            dense_hits = filter_by_exclusion(dense_hits, exclusion_set)
 
         start = time.perf_counter()
         fused_hits = rrf(bm25_hits, dense_hits, top_k=retrieval_k)
@@ -287,7 +373,7 @@ def query(
         fused_hits = [
             (vid, score)
             for vid, score in fused_hits
-            if filter_by_scope([parse_verse_id(vid)], scope)
+            if _parsed_verse_in_scope(parse_verse_id(vid), scope)
         ]
 
     dedupe_cfg = load_dedupe_config()
