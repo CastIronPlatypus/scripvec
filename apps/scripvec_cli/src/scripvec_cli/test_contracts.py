@@ -219,3 +219,77 @@ class TestExcludeFlag:
         assert err["error"]["code"] == "bad_flag"
         assert "--exclude" in err["error"]["message"]
         assert "token" in err["error"]["message"].lower() or "limit" in err["error"]["message"].lower()
+
+
+class TestHybridWeightFlag:
+    """Contract tests for --hybrid-weight flag (CR-015 BEAD A)."""
+
+    def test_hybrid_weight_valid_integer_ratio(self) -> None:
+        """--hybrid-weight 2:1 parses successfully in hybrid mode."""
+        result = runner.invoke(app, ["query", "test", "--mode", "hybrid", "--hybrid-weight", "2:1", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "hybrid-weight" not in err.get("error", {}).get("message", "")
+
+    def test_hybrid_weight_valid_float_ratio(self) -> None:
+        """--hybrid-weight 1.5:0.5 parses successfully."""
+        result = runner.invoke(app, ["query", "test", "--mode", "hybrid", "--hybrid-weight", "1.5:0.5", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "hybrid-weight" not in err.get("error", {}).get("message", "")
+
+    def test_hybrid_weight_with_bm25_raises_error(self) -> None:
+        """--hybrid-weight with --mode bm25 raises error naming mode conflict."""
+        result = runner.invoke(app, ["query", "test", "--mode", "bm25", "--hybrid-weight", "1:1"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "--hybrid-weight" in err["error"]["message"]
+        assert "bm25" in err["error"]["message"].lower()
+
+    def test_hybrid_weight_with_dense_raises_error(self) -> None:
+        """--hybrid-weight with --mode dense raises error naming mode conflict."""
+        result = runner.invoke(app, ["query", "test", "--mode", "dense", "--hybrid-weight", "1:1"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "--hybrid-weight" in err["error"]["message"]
+        assert "dense" in err["error"]["message"].lower()
+
+    def test_hybrid_weight_malformed_non_numeric(self) -> None:
+        """--hybrid-weight foo raises error including rejected input."""
+        result = runner.invoke(app, ["query", "test", "--mode", "hybrid", "--hybrid-weight", "foo"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "foo" in err["error"]["message"]
+
+    def test_hybrid_weight_malformed_missing_half(self) -> None:
+        """--hybrid-weight 1: raises error including rejected input."""
+        result = runner.invoke(app, ["query", "test", "--mode", "hybrid", "--hybrid-weight", "1:"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "1:" in err["error"]["message"]
+
+    def test_hybrid_weight_malformed_negative(self) -> None:
+        """--hybrid-weight -1:2 raises error including rejected input."""
+        result = runner.invoke(app, ["query", "test", "--mode", "hybrid", "--hybrid-weight", "-1:2"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "-1:2" in err["error"]["message"]
+
+    def test_hybrid_weight_malformed_both_zero(self) -> None:
+        """--hybrid-weight 0:0 raises error including rejected input."""
+        result = runner.invoke(app, ["query", "test", "--mode", "hybrid", "--hybrid-weight", "0:0"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "0:0" in err["error"]["message"]
+
+    def test_hybrid_weight_malformed_too_many_colons(self) -> None:
+        """--hybrid-weight 1:2:3 raises error including rejected input."""
+        result = runner.invoke(app, ["query", "test", "--mode", "hybrid", "--hybrid-weight", "1:2:3"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "1:2:3" in err["error"]["message"]

@@ -12,11 +12,15 @@ from .config import EmbedConfig, load_embed_config
 from .embed_telemetry import EmbedConfig as TelemetryConfig
 from .embed_telemetry import EmbedTelemetry
 
-_MAX_TOKENS = 8000
+MAX_TOKENS = 8000
 
 
-def _estimate_token_count(text: str) -> int:
-    """Conservative upper bound on token count: char/3 + word_count."""
+def estimate_token_count(text: str) -> int:
+    """Conservative upper bound on token count: char/3 + word_count.
+
+    This function is the single source of truth for token estimation
+    across the codebase (ADR-005 8K token cap).
+    """
     char_estimate = len(text) // 3
     word_count = len(text.split())
     return char_estimate + word_count
@@ -74,10 +78,10 @@ def embed(text: str, *, _verse_chunk: bool = False) -> list[float]:
     Raises:
         RuntimeError: On >8K token input, non-2xx HTTP, dim mismatch, malformed response.
     """
-    token_estimate = _estimate_token_count(text)
-    if token_estimate > _MAX_TOKENS:
+    token_estimate = estimate_token_count(text)
+    if token_estimate > MAX_TOKENS:
         raise RuntimeError(
-            f"Input exceeds {_MAX_TOKENS} token limit (estimated {token_estimate} tokens)"
+            f"Input exceeds {MAX_TOKENS} token limit (estimated {token_estimate} tokens)"
         )
 
     cfg = load_embed_config()
