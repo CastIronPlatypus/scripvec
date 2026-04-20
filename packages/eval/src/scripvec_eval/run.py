@@ -43,6 +43,8 @@ class ModeMetrics:
     mode: str
     recall_at_10: float
     recall_at_20: float
+    recall_at_10_dedupe_on: float
+    recall_at_10_dedupe_off: float
     ndcg_at_10: float
     mrr_at_10: float
     latency_p50_ms: float
@@ -172,18 +174,24 @@ def run(
         relevant = _build_relevant_map(judgments, q.query_id)
 
         for mode in modes:
-            result = run_query(q.query, k=20, mode=mode, index=index_hash)
-            retrieved = [r.verse_id for r in result.results]
-            latency = result.latency_ms.get("total", 0.0)
+            result_dedupe_on = run_query(q.query, k=20, mode=mode, index=index_hash, dedupe=True)
+            result_dedupe_off = run_query(q.query, k=20, mode=mode, index=index_hash, dedupe=False)
 
-            r10 = recall_at_k(retrieved, relevant, 10)
-            r20 = recall_at_k(retrieved, relevant, 20)
-            ndcg = ndcg_at_10(retrieved, relevant)
-            mrr = mrr_at_10(retrieved, relevant)
+            retrieved_on = [r.verse_id for r in result_dedupe_on.results]
+            retrieved_off = [r.verse_id for r in result_dedupe_off.results]
+            latency = result_dedupe_on.latency_ms.get("total", 0.0)
+
+            r10_on = recall_at_k(retrieved_on, relevant, 10)
+            r10_off = recall_at_k(retrieved_off, relevant, 10)
+            r20 = recall_at_k(retrieved_on, relevant, 20)
+            ndcg = ndcg_at_10(retrieved_on, relevant)
+            mrr = mrr_at_10(retrieved_on, relevant)
 
             mode_results[mode].append({
-                "recall_at_10": r10,
+                "recall_at_10": r10_on,
                 "recall_at_20": r20,
+                "recall_at_10_dedupe_on": r10_on,
+                "recall_at_10_dedupe_off": r10_off,
                 "ndcg_at_10": ndcg,
                 "mrr_at_10": mrr,
             })
@@ -192,16 +200,16 @@ def run(
             for tag in q.tags:
                 if tag not in bucket_recalls[mode]:
                     bucket_recalls[mode][tag] = []
-                bucket_recalls[mode][tag].append(r10)
+                bucket_recalls[mode][tag].append(r10_on)
 
-            if r10 < 1.0 and relevant:
+            if r10_on < 1.0 and relevant:
                 failures.append(FailureRow(
                     query_id=q.query_id,
                     query=q.query,
                     mode=mode,
                     expected=list(relevant.keys()),
-                    retrieved=retrieved[:10],
-                    recall_at_10=r10,
+                    retrieved=retrieved_on[:10],
+                    recall_at_10=r10_on,
                 ))
 
     metrics_by_mode: dict[str, ModeMetrics] = {}
@@ -213,6 +221,8 @@ def run(
             mode=mode,
             recall_at_10=sum(r["recall_at_10"] for r in results) / len(results),
             recall_at_20=sum(r["recall_at_20"] for r in results) / len(results),
+            recall_at_10_dedupe_on=sum(r["recall_at_10_dedupe_on"] for r in results) / len(results),
+            recall_at_10_dedupe_off=sum(r["recall_at_10_dedupe_off"] for r in results) / len(results),
             ndcg_at_10=sum(r["ndcg_at_10"] for r in results) / len(results),
             mrr_at_10=sum(r["mrr_at_10"] for r in results) / len(results),
             latency_p50_ms=percentile(latencies, 50) if latencies else 0.0,
