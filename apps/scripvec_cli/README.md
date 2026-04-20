@@ -33,6 +33,7 @@ Search scripture verses.
 | `--format` | `-f` | enum | `json` | `json` \| `text` |
 | `--index` | `-i` | str | `"latest"` | Index hash or `"latest"` |
 | `--show-scores` | — | bool | `false` | Include scores in output |
+| `--floor` | — | float | — | Minimum score threshold [0.0-1.0], mode-dependent |
 | `--window` | — | int | config | Include N verses before and after each hit |
 | `--dedupe` | — | flag | `true` | Enable proximity deduplication (default) |
 | `--no-dedupe` | — | flag | — | Disable proximity deduplication |
@@ -44,6 +45,7 @@ Search scripture verses.
   "mode": "hybrid",
   "k": 10,
   "index": "<hash>",
+  "floor": null,
   "latency_ms": {...},
   "results": [
     {"rank": 1, "verse_id": "...", "ref": "...", "text": "...", "forced": false}
@@ -60,6 +62,39 @@ Search scripture verses.
 **Study-flow recommendation:** When using both `--window` and `--dedupe`, consider lower `--k` values (1-3) to get richer context per hit rather than many hits with narrow windows. This is a recommendation, not an enforced rule.
 
 **Default behavior:** Proximity deduplication is on by default. Use `--no-dedupe` when you want raw retrieval order without proximity-based consolidation.
+
+#### Similarity Floor (`--floor`)
+
+The `--floor` flag sets a minimum score threshold for results. Its interpretation depends on the retrieval mode:
+
+| Mode | Interpretation | Behavior |
+|------|----------------|----------|
+| `dense` | **Absolute** cosine similarity | Drops hits with cosine score < floor |
+| `bm25` | **Relative** to top BM25 score | Drops hits with score < floor × top_score |
+| `hybrid` | **Relative** to top RRF score | Drops hits with score < floor × top_rrf |
+
+**Valid range:** `[0.0, 1.0]`. Values outside this range return a structured error (exit code 1) naming the flag, mode, and accepted range.
+
+**Floor 0.0:** Acts as a no-op (keeps all hits), but the response's `floor` field is still populated.
+
+**Floor absent:** The response's `floor` field is `null`.
+
+**Response shape with floor:**
+```json
+{
+  "floor": {
+    "value": 0.5,
+    "interpretation": "relative",
+    "effective_threshold": 0.0156
+  }
+}
+```
+
+- `value`: The floor value you passed
+- `interpretation`: `"absolute"` (dense) or `"relative"` (bm25/hybrid)
+- `effective_threshold`: The concrete cutoff in the mode's native score units
+
+**Example:** With `--mode hybrid --floor 0.5` and a top RRF score of 0.0312, the effective threshold is 0.0156. Hits below this threshold are dropped.
 
 ---
 
