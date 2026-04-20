@@ -36,9 +36,10 @@ def _run_query(
     mode: str,
     index: str,
     floor: float | None = None,
+    window: int = 0,
 ) -> QueryResult:
     """Execute query and return result."""
-    return query(text, k=k, mode=mode, index=index, floor=floor)
+    return query(text, k=k, mode=mode, index=index, floor=floor, window=window)
 
 
 def _to_log_record(
@@ -91,6 +92,25 @@ def _format_json(result: QueryResult, show_scores: bool) -> str:
             "interpretation": result.floor.interpretation,
             "effective_threshold": result.floor.effective_threshold,
         }
+
+    def _format_result(r: "ResultRow") -> dict:
+        res: dict = {
+            "rank": r.rank,
+            "verse_id": r.verse_id,
+            "ref": r.ref,
+            "text": r.text,
+            "forced": r.forced,
+        }
+        if show_scores:
+            res["score"] = r.score
+            res["scores"] = r.scores
+        if r.window is not None:
+            res["window"] = {
+                "before": [{"ref": v.ref, "text": v.text} for v in r.window.before],
+                "after": [{"ref": v.ref, "text": v.text} for v in r.window.after],
+            }
+        return res
+
     data = {
         "query": result.query,
         "mode": result.mode,
@@ -98,17 +118,7 @@ def _format_json(result: QueryResult, show_scores: bool) -> str:
         "index": result.index,
         "floor": floor_data,
         "latency_ms": result.latency_ms,
-        "results": [
-            {
-                "rank": r.rank,
-                "verse_id": r.verse_id,
-                "ref": r.ref,
-                "text": r.text,
-                "forced": r.forced,
-                **({"score": r.score, "scores": r.scores} if show_scores else {}),
-            }
-            for r in result.results
-        ],
+        "results": [_format_result(r) for r in result.results],
     }
     return json.dumps(data, indent=2)
 
@@ -126,6 +136,7 @@ def cmd_query(
     no_dedupe: Annotated[bool | None, typer.Option("--no-dedupe", is_flag=True, flag_value=True, help="Disable proximity deduplication")] = None,
     exclude: Annotated[str | None, typer.Option("--exclude", help="Text to exclude from results (vector-based)")] = None,
     hybrid_weight: Annotated[str | None, typer.Option("--hybrid-weight", help="Lexical:dense weight ratio for hybrid mode (e.g., '2:1' or '1.5:0.5')")] = None,
+    cross_ref_expand: Annotated[int | None, typer.Option("--cross-ref-expand", help="Expand cross-references up to N levels (0 = no expansion)")] = None,
 ) -> None:
     """Search scripture verses using hybrid BM25 + dense retrieval.
 
@@ -220,6 +231,14 @@ def cmd_query(
                 )
             # hybrid_weight is validated; (lexical_w, dense_w) available for downstream use
 
+        if cross_ref_expand is not None and cross_ref_expand < 0:
+            emit_error(
+                "bad_flag",
+                f"--cross-ref-expand must be >= 0, got {cross_ref_expand}",
+                exit_code=ExitCode.USER_ERROR,
+            )
+        # cross_ref_expand 0 and None are equivalent no-ops
+
         if k < 1:
             emit_error("bad_flag", f"k must be >= 1, got {k}", exit_code=ExitCode.USER_ERROR)
 
@@ -244,7 +263,7 @@ def cmd_query(
                 exit_code=ExitCode.USER_ERROR,
             )
 
-        result = _run_query(text, k, mode.value, index, floor)
+        result = _run_query(text, k, mode.value, index, floor, effective_window)
 
         query_id = query_log.new_query_id()
         log_record = _to_log_record(result, query_id)

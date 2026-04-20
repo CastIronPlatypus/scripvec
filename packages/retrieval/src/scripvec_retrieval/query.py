@@ -9,12 +9,14 @@ from pathlib import Path
 from scripvec_reference.reference import Reference, canonical, extract_references
 
 from .bm25 import bm25_topk, load_bm25
-from .config import load_embed_config
+from .config import load_dedupe_config, load_embed_config
+from .dedupe import proximity_dedupe
 from .embed import embed
 from .manifest import read_manifest
 from .paths import index_path, indexes_dir, resolve_latest
 from .rrf import rrf
 from .store import dense_topk, get_verse, open_store
+from .window import Window, get_window
 
 
 @dataclass(frozen=True)
@@ -28,6 +30,7 @@ class ResultRow:
     score: float
     scores: dict[str, float]
     forced: bool
+    window: Window | None = None
 
 
 @dataclass(frozen=True)
@@ -109,6 +112,7 @@ def query(
     mode: str = "hybrid",
     index: str = "latest",
     floor: float | None = None,
+    window: int = 0,
 ) -> QueryResult:
     """Execute a retrieval query with optional reference extraction.
 
@@ -118,6 +122,7 @@ def query(
         mode: Retrieval mode - "hybrid", "bm25", or "dense".
         index: Index identifier - "latest" or explicit hash.
         floor: Minimum cosine score for dense mode (0.0-1.0). None or 0.0 is a no-op.
+        window: Number of verses before/after each hit to include (0 = no window).
 
     Returns:
         QueryResult with results and timing.
@@ -217,6 +222,7 @@ def query(
             if verse_id in extracted_verse_ids:
                 verse = get_verse(store, verse_id)
                 is_also_organic = verse_id in organic_ids
+                win = get_window(store, verse_id, window) if window > 0 else None
                 results.append(ResultRow(
                     rank=len(results) + 1,
                     verse_id=verse_id,
@@ -225,12 +231,14 @@ def query(
                     score=1.0 if not is_also_organic else _get_score(fused_hits, verse_id),
                     scores={"forced": 1.0},
                     forced=True,
+                    window=win,
                 ))
                 if is_also_organic:
                     fused_hits = [(vid, s) for vid, s in fused_hits if vid != verse_id]
 
         for verse_id, score in fused_hits:
             verse = get_verse(store, verse_id)
+            win = get_window(store, verse_id, window) if window > 0 else None
             results.append(ResultRow(
                 rank=len(results) + 1,
                 verse_id=verse_id,
@@ -239,6 +247,7 @@ def query(
                 score=score,
                 scores=_build_scores(verse_id, bm25_hits, dense_hits, mode),
                 forced=False,
+                window=win,
             ))
 
     finally:
