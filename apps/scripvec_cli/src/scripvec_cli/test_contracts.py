@@ -307,3 +307,41 @@ class TestHybridWeightFlag:
         err = json.loads(result.output)
         assert err["error"]["code"] == "bad_flag"
         assert "1:2:3" in err["error"]["message"]
+
+
+class TestCrossRefExpandFlag:
+    """Contract tests for --cross-ref-expand flag (CR-015 BEAD D)."""
+
+    def test_cross_ref_expand_zero_valid(self) -> None:
+        """--cross-ref-expand 0 is valid (no-op)."""
+        result = runner.invoke(app, ["query", "test", "--cross-ref-expand", "0", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "cross-ref-expand" not in err.get("error", {}).get("message", "")
+
+    def test_cross_ref_expand_absent_valid(self) -> None:
+        """Absent --cross-ref-expand is valid (no-op)."""
+        result = runner.invoke(app, ["query", "test", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "cross-ref-expand" not in err.get("error", {}).get("message", "")
+
+    def test_cross_ref_expand_positive_valid(self) -> None:
+        """--cross-ref-expand 3 is valid for all modes."""
+        for m in ["bm25", "dense", "hybrid"]:
+            result = runner.invoke(app, ["query", "test", "--cross-ref-expand", "3", "--mode", m, "--index", "nonexistent"])
+            err = json.loads(result.output) if result.output else {}
+            assert err.get("error", {}).get("code") != "bad_flag" or "cross-ref-expand" not in err.get("error", {}).get("message", ""), \
+                f"--cross-ref-expand 3 should be valid for --mode {m}"
+
+    def test_cross_ref_expand_negative_raises_error(self) -> None:
+        """--cross-ref-expand -1 raises error including rejected input."""
+        result = runner.invoke(app, ["query", "test", "--cross-ref-expand", "-1"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "-1" in err["error"]["message"] or "--cross-ref-expand" in err["error"]["message"]
+
+    def test_cross_ref_expand_non_integer_raises_error(self) -> None:
+        """--cross-ref-expand abc raises parse error."""
+        result = runner.invoke(app, ["query", "test", "--cross-ref-expand", "abc"])
+        assert result.exit_code != 0
+        assert "cross-ref-expand" in result.output.lower() or "invalid" in result.output.lower()
