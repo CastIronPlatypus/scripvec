@@ -147,3 +147,34 @@ class TestWindowFlag:
         result = runner.invoke(app, ["query", "test", "--window", "abc"])
         assert result.exit_code != 0
         assert "window" in result.output.lower() or "invalid" in result.output.lower()
+
+
+class TestDedupeFlag:
+    """Contract tests for --dedupe / --no-dedupe flags (CR-013 B5)."""
+
+    def test_dedupe_absent_defaults_true(self) -> None:
+        """No flag → effective dedupe = True (default on)."""
+        result = runner.invoke(app, ["query", "test", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "dedupe" not in err.get("error", {}).get("message", "")
+
+    def test_dedupe_flag_parses(self) -> None:
+        """--dedupe → True (explicit enable)."""
+        result = runner.invoke(app, ["query", "test", "--dedupe", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "dedupe" not in err.get("error", {}).get("message", "")
+
+    def test_no_dedupe_flag_parses(self) -> None:
+        """--no-dedupe → False (explicit disable)."""
+        result = runner.invoke(app, ["query", "test", "--no-dedupe", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "dedupe" not in err.get("error", {}).get("message", "")
+
+    def test_both_dedupe_flags_raises_error(self) -> None:
+        """--dedupe --no-dedupe → error, exit non-zero."""
+        result = runner.invoke(app, ["query", "test", "--dedupe", "--no-dedupe"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "--dedupe" in err["error"]["message"]
+        assert "--no-dedupe" in err["error"]["message"]

@@ -34,9 +34,10 @@ def _run_query(
     k: int,
     mode: str,
     index: str,
+    floor: float | None = None,
 ) -> QueryResult:
     """Execute query and return result."""
-    return query(text, k=k, mode=mode, index=index)
+    return query(text, k=k, mode=mode, index=index, floor=floor)
 
 
 def _to_log_record(
@@ -112,6 +113,8 @@ def cmd_query(
     show_scores: Annotated[bool, typer.Option("--show-scores", help="Include scores in output")] = False,
     floor: Annotated[float | None, typer.Option("--floor", help="Minimum similarity score [0.0-1.0]")] = None,
     window: Annotated[int | None, typer.Option("--window", help="Include N verses before and after each hit")] = None,
+    dedupe: Annotated[bool | None, typer.Option("--dedupe", is_flag=True, flag_value=True, help="Enable proximity deduplication (default)")] = None,
+    no_dedupe: Annotated[bool | None, typer.Option("--no-dedupe", is_flag=True, flag_value=True, help="Disable proximity deduplication")] = None,
 ) -> None:
     """Search scripture verses using hybrid BM25 + dense retrieval.
 
@@ -133,8 +136,29 @@ def cmd_query(
         }
     """
     try:
+        if dedupe is not None and no_dedupe is not None:
+            emit_error(
+                "bad_flag",
+                "Cannot specify both --dedupe and --no-dedupe",
+                exit_code=ExitCode.USER_ERROR,
+            )
+
+        effective_dedupe = True
+        if no_dedupe:
+            effective_dedupe = False
+
+        # effective_dedupe is now available for downstream use (CR-013 B6)
+        _ = effective_dedupe
+
         if k < 1:
             emit_error("bad_flag", f"k must be >= 1, got {k}", exit_code=ExitCode.USER_ERROR)
+
+        if floor is not None and (floor < 0.0 or floor > 1.0):
+            emit_error(
+                "bad_flag",
+                f"--floor must be in range [0.0, 1.0] for --mode {mode.value}, got {floor}",
+                exit_code=ExitCode.USER_ERROR,
+            )
 
         effective_window: int
         if window is None:
@@ -150,14 +174,7 @@ def cmd_query(
                 exit_code=ExitCode.USER_ERROR,
             )
 
-        if floor is not None and (floor < 0.0 or floor > 1.0):
-            emit_error(
-                "bad_flag",
-                f"--floor must be in range [0.0, 1.0] for --mode {mode.value}, got {floor}",
-                exit_code=ExitCode.USER_ERROR,
-            )
-
-        result = _run_query(text, k, mode.value, index)
+        result = _run_query(text, k, mode.value, index, floor)
 
         query_id = query_log.new_query_id()
         log_record = _to_log_record(result, query_id)
