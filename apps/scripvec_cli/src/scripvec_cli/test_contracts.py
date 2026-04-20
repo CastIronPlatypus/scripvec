@@ -443,13 +443,12 @@ class TestBookFlag:
         assert "UnknownBook" in err["error"]["message"]
 
     def test_book_dc_raises_sections_error(self) -> None:
-        """--book D&C raises exact message about sections."""
+        """--book D&C raises exact ADR-001 message about sections."""
         result = runner.invoke(app, ["query", "test", "--book", "D&C"])
-        assert result.exit_code != 0
+        assert result.exit_code != 0, "--book D&C must exit non-zero"
         err = json.loads(result.output)
         assert err["error"]["code"] == "bad_flag"
-        assert "sections" in err["error"]["message"]
-        assert "--range" in err["error"]["message"]
+        assert err["error"]["message"] == "D&C has sections, not books; use --range instead"
 
     def test_book_not_in_volume_raises_error(self) -> None:
         """--book from wrong volume raises error per ADR-001."""
@@ -470,27 +469,27 @@ class TestBookFlag:
 class TestRangeFlag:
     """Contract tests for --range flag (CR-011 Story C)."""
 
-    def test_range_valid_chapter_range(self) -> None:
-        """--range 'Alma 30-42' parses without flag error."""
-        result = runner.invoke(app, ["query", "test", "--range", "Alma 30-42", "--index", "nonexistent"])
+    def test_range_valid_single_reference(self) -> None:
+        """--range 'Alma 32:21' parses without flag error."""
+        result = runner.invoke(app, ["query", "test", "--range", "Alma 32:21", "--index", "nonexistent"])
         err = json.loads(result.output) if result.output else {}
         assert err.get("error", {}).get("code") != "bad_flag" or "range" not in err.get("error", {}).get("message", "")
 
-    def test_range_valid_single_chapter(self) -> None:
-        """--range 'D&C 76' parses without flag error."""
-        result = runner.invoke(app, ["query", "test", "--range", "D&C 76", "--index", "nonexistent"])
+    def test_range_valid_dc_reference(self) -> None:
+        """--range 'D&C 76:1' parses without flag error."""
+        result = runner.invoke(app, ["query", "test", "--range", "D&C 76:1", "--index", "nonexistent"])
         err = json.loads(result.output) if result.output else {}
         assert err.get("error", {}).get("code") != "bad_flag" or "range" not in err.get("error", {}).get("message", "")
 
     def test_range_valid_verse_range(self) -> None:
-        """--range '2 Nephi 31:1-21' parses without flag error."""
-        result = runner.invoke(app, ["query", "test", "--range", "2 Nephi 31:1-21", "--index", "nonexistent"])
+        """--range '2 Nephi 31:1 - 2 Nephi 31:21' parses without flag error."""
+        result = runner.invoke(app, ["query", "test", "--range", "2 Nephi 31:1 - 2 Nephi 31:21", "--index", "nonexistent"])
         err = json.loads(result.output) if result.output else {}
         assert err.get("error", {}).get("code") != "bad_flag" or "range" not in err.get("error", {}).get("message", "")
 
     def test_range_valid_multi_reference(self) -> None:
-        """--range 'Alma 32; 34:15-41' parses without flag error."""
-        result = runner.invoke(app, ["query", "test", "--range", "Alma 32; 34:15-41", "--index", "nonexistent"])
+        """--range 'Alma 32:21; Alma 34:15' parses without flag error."""
+        result = runner.invoke(app, ["query", "test", "--range", "Alma 32:21; Alma 34:15", "--index", "nonexistent"])
         err = json.loads(result.output) if result.output else {}
         assert err.get("error", {}).get("code") != "bad_flag" or "range" not in err.get("error", {}).get("message", "")
 
@@ -503,18 +502,22 @@ class TestRangeFlag:
         assert "Malformed" in err["error"]["message"] or "range" in err["error"]["message"].lower()
 
     def test_range_outside_volume_raises_error(self) -> None:
-        """--range outside --volume raises error per ADR-001."""
-        result = runner.invoke(app, ["query", "test", "--volume", "book_of_mormon", "--range", "D&C 76"])
-        assert result.exit_code != 0
+        """--range outside --volume raises error naming filter and reference per ADR-001."""
+        result = runner.invoke(app, ["query", "test", "--volume", "book_of_mormon", "--range", "D&C 76:1"])
+        assert result.exit_code != 0, "--range outside --volume must exit non-zero"
         err = json.loads(result.output)
         assert err["error"]["code"] == "bad_flag"
+        assert "--volume" in err["error"]["message"], "Error must name --volume filter"
+        assert "D&C" in err["error"]["message"], "Error must name the conflicting reference"
 
     def test_range_outside_book_raises_error(self) -> None:
-        """--range outside --book raises error per ADR-001."""
-        result = runner.invoke(app, ["query", "test", "--book", "Alma", "--range", "Helaman 5"])
-        assert result.exit_code != 0
+        """--range outside --book raises error naming filter and reference per ADR-001."""
+        result = runner.invoke(app, ["query", "test", "--book", "Alma", "--range", "Helaman 5:1"])
+        assert result.exit_code != 0, "--range outside --book must exit non-zero"
         err = json.loads(result.output)
         assert err["error"]["code"] == "bad_flag"
+        assert "--book" in err["error"]["message"], "Error must name --book filter"
+        assert "Helaman" in err["error"]["message"], "Error must name the conflicting reference"
 
     def test_range_absent_no_error(self) -> None:
         """Absent --range does not trigger range-related error."""
