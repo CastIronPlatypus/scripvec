@@ -98,6 +98,7 @@ def query(
     k: int = 10,
     mode: str = "hybrid",
     index: str = "latest",
+    floor: float | None = None,
 ) -> QueryResult:
     """Execute a retrieval query with optional reference extraction.
 
@@ -106,6 +107,7 @@ def query(
         k: Number of results to return (may be exceeded by force-inclusion).
         mode: Retrieval mode - "hybrid", "bm25", or "dense".
         index: Index identifier - "latest" or explicit hash.
+        floor: Minimum cosine score for dense mode (0.0-1.0). None or 0.0 is a no-op.
 
     Returns:
         QueryResult with results and timing.
@@ -155,6 +157,8 @@ def query(
         start = time.perf_counter()
         dense_hits = _run_dense(idx_dir, text, k)
         latency["dense"] = (time.perf_counter() - start) * 1000
+        if floor is not None and floor > 0.0:
+            dense_hits = [(vid, score) for vid, score in dense_hits if score >= floor]
         fused_hits = dense_hits
 
     elif mode == "hybrid":
