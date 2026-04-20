@@ -521,3 +521,40 @@ class TestRangeFlag:
         result = runner.invoke(app, ["query", "test", "--index", "nonexistent"])
         err = json.loads(result.output) if result.output else {}
         assert err.get("error", {}).get("code") != "bad_flag" or "range" not in err.get("error", {}).get("message", "")
+
+
+class TestScopeInResponse:
+    """Contract tests for scope object in JSON response (CR-011 E1)."""
+
+    def test_scope_always_present_unscoped(self) -> None:
+        """Unscoped query has scope object with all nulls."""
+        result = runner.invoke(app, ["query", "test", "--index", "nonexistent"])
+        if result.exit_code == 0:
+            data = json.loads(result.output)
+            assert "scope" in data
+            assert data["scope"] == {"volume": None, "book": None, "range": None}
+        else:
+            err = json.loads(result.output)
+            assert err.get("error", {}).get("code") != "bad_flag" or "scope" not in err.get("error", {}).get("message", "")
+
+    def test_scope_volume_canonical(self) -> None:
+        """--volume value is echoed canonically in scope.volume."""
+        result = runner.invoke(app, ["query", "test", "--volume", "book_of_mormon", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "volume" not in err.get("error", {}).get("message", "")
+
+    def test_scope_book_canonical(self) -> None:
+        """--book value is echoed canonically in scope.book."""
+        result = runner.invoke(app, ["query", "test", "--book", "Alma", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "book" not in err.get("error", {}).get("message", "")
+
+    def test_scope_has_three_fields(self) -> None:
+        """Scope object always has volume, book, range keys."""
+        result = runner.invoke(app, ["query", "test", "--volume", "book_of_mormon", "--index", "nonexistent"])
+        if result.exit_code == 0:
+            data = json.loads(result.output)
+            assert "scope" in data
+            assert "volume" in data["scope"]
+            assert "book" in data["scope"]
+            assert "range" in data["scope"]
