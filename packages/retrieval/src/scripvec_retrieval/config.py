@@ -87,3 +87,88 @@ def load_embed_config() -> EmbedConfig:
         raise RuntimeError(f"dim must be an integer, got {dim_str!r}") from e
 
     return EmbedConfig(base_url=base_url, api_key=api_key, model=model, dim=dim)
+
+
+# Defaults for exclude config — defined exactly once per bead sv-gpr
+_EXCLUDE_M_DEFAULT = 10
+_EXCLUDE_BUFFER_DEFAULT = 20
+
+
+@dataclass(frozen=True)
+class ExcludeConfig:
+    """Immutable exclusion configuration per CR-014."""
+
+    exclude_m: int
+    exclude_buffer: int
+
+    def __post_init__(self) -> None:
+        if self.exclude_m < 1:
+            raise ValueError("exclude_m must be >= 1")
+        if self.exclude_buffer < 0:
+            raise ValueError("exclude_buffer must be >= 0")
+
+
+@dataclass(frozen=True)
+class WindowConfig:
+    """Immutable window configuration per CR-013."""
+
+    window_default: int
+
+    def __post_init__(self) -> None:
+        if self.window_default < 0:
+            raise ValueError("window_default must be >= 0")
+
+
+def load_window_config() -> WindowConfig:
+    """Load window config from config file.
+
+    Config keys (required):
+        window_default - default N for --window flag
+
+    Raises:
+        RuntimeError: if window_default is missing or malformed (per ADR-001)
+    """
+    file_config = _read_optional_config_file()
+
+    window_default_raw = file_config.get("window_default")
+
+    if window_default_raw is None:
+        raise RuntimeError(
+            "Cannot resolve window config: missing window_default. "
+            "Add window_default to .scripvec_config.json"
+        )
+
+    try:
+        window_default = int(window_default_raw)
+    except (ValueError, TypeError) as e:
+        raise RuntimeError(f"window_default must be an integer, got {window_default_raw!r}") from e
+
+    return WindowConfig(window_default=window_default)
+
+
+def load_exclude_config() -> ExcludeConfig:
+    """Load exclusion config from optional config file, with defaults.
+
+    Config keys (optional, fall back to defaults):
+        exclude_m - top-M verses for exclusion set
+        exclude_buffer - extra hits retrieved before exclusion
+
+    Raises:
+        RuntimeError: if values are malformed (per ADR-001)
+    """
+    file_config = _read_optional_config_file()
+
+    exclude_m_raw = file_config.get("exclude_m", _EXCLUDE_M_DEFAULT)
+    exclude_buffer_raw = file_config.get("exclude_buffer", _EXCLUDE_BUFFER_DEFAULT)
+
+    try:
+        exclude_m = int(exclude_m_raw)
+    except (ValueError, TypeError) as e:
+        raise RuntimeError(f"exclude_m must be an integer, got {exclude_m_raw!r}") from e
+
+    try:
+        exclude_buffer = int(exclude_buffer_raw)
+    except (ValueError, TypeError) as e:
+        raise RuntimeError(f"exclude_buffer must be an integer, got {exclude_buffer_raw!r}") from e
+
+    return ExcludeConfig(exclude_m=exclude_m, exclude_buffer=exclude_buffer)

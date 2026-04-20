@@ -10,7 +10,13 @@ from unittest.mock import patch
 
 import pytest
 
-from scripvec_retrieval.config import EmbedConfig, _read_optional_config_file, load_embed_config
+from scripvec_retrieval.config import (
+    EmbedConfig,
+    ExcludeConfig,
+    _read_optional_config_file,
+    load_embed_config,
+    load_exclude_config,
+)
 
 
 class TestEmbedConfig:
@@ -163,3 +169,74 @@ class TestReadOptionalConfigFile:
         with patch("scripvec_retrieval.config.Path.cwd", return_value=tmp_path):
             with pytest.raises(RuntimeError, match="must contain a JSON object"):
                 _read_optional_config_file()
+
+
+class TestExcludeConfig:
+    """Test ExcludeConfig dataclass invariants (CR-014 B1)."""
+
+    def test_valid_config(self) -> None:
+        cfg = ExcludeConfig(exclude_m=10, exclude_buffer=20)
+        assert cfg.exclude_m == 10
+        assert cfg.exclude_buffer == 20
+
+    def test_zero_exclude_m_raises(self) -> None:
+        with pytest.raises(ValueError, match="exclude_m must be >= 1"):
+            ExcludeConfig(exclude_m=0, exclude_buffer=20)
+
+    def test_negative_exclude_m_raises(self) -> None:
+        with pytest.raises(ValueError, match="exclude_m must be >= 1"):
+            ExcludeConfig(exclude_m=-1, exclude_buffer=20)
+
+    def test_negative_exclude_buffer_raises(self) -> None:
+        with pytest.raises(ValueError, match="exclude_buffer must be >= 0"):
+            ExcludeConfig(exclude_m=10, exclude_buffer=-1)
+
+    def test_zero_exclude_buffer_allowed(self) -> None:
+        cfg = ExcludeConfig(exclude_m=10, exclude_buffer=0)
+        assert cfg.exclude_buffer == 0
+
+    def test_frozen(self) -> None:
+        cfg = ExcludeConfig(exclude_m=10, exclude_buffer=20)
+        with pytest.raises(AttributeError):
+            cfg.exclude_m = 5  # type: ignore[misc]
+
+
+class TestLoadExcludeConfig:
+    """Test load_exclude_config with config file and defaults (CR-014 B1)."""
+
+    def test_defaults_without_config_file(self, tmp_path: Path) -> None:
+        """Missing keys fall back to defaults."""
+        with patch("scripvec_retrieval.config._read_optional_config_file", return_value={}):
+            cfg = load_exclude_config()
+        assert cfg.exclude_m == 10
+        assert cfg.exclude_buffer == 20
+
+    def test_round_trip_with_keys(self, tmp_path: Path) -> None:
+        """Config file with keys returns expected values."""
+        file_config = {"exclude_m": 15, "exclude_buffer": 30}
+        with patch("scripvec_retrieval.config._read_optional_config_file", return_value=file_config):
+            cfg = load_exclude_config()
+        assert cfg.exclude_m == 15
+        assert cfg.exclude_buffer == 30
+
+    def test_malformed_exclude_m_raises(self, tmp_path: Path) -> None:
+        """Non-integer exclude_m raises RuntimeError per ADR-001."""
+        file_config = {"exclude_m": "not-a-number", "exclude_buffer": 20}
+        with patch("scripvec_retrieval.config._read_optional_config_file", return_value=file_config):
+            with pytest.raises(RuntimeError, match="exclude_m must be an integer"):
+                load_exclude_config()
+
+    def test_malformed_exclude_buffer_raises(self, tmp_path: Path) -> None:
+        """Non-integer exclude_buffer raises RuntimeError per ADR-001."""
+        file_config = {"exclude_m": 10, "exclude_buffer": "invalid"}
+        with patch("scripvec_retrieval.config._read_optional_config_file", return_value=file_config):
+            with pytest.raises(RuntimeError, match="exclude_buffer must be an integer"):
+                load_exclude_config()
+
+    def test_partial_config_uses_defaults(self, tmp_path: Path) -> None:
+        """Only exclude_m in config, exclude_buffer uses default."""
+        file_config = {"exclude_m": 25}
+        with patch("scripvec_retrieval.config._read_optional_config_file", return_value=file_config):
+            cfg = load_exclude_config()
+        assert cfg.exclude_m == 25
+        assert cfg.exclude_buffer == 20
