@@ -115,6 +115,7 @@ def cmd_query(
     window: Annotated[int | None, typer.Option("--window", help="Include N verses before and after each hit")] = None,
     dedupe: Annotated[bool | None, typer.Option("--dedupe", is_flag=True, flag_value=True, help="Enable proximity deduplication (default)")] = None,
     no_dedupe: Annotated[bool | None, typer.Option("--no-dedupe", is_flag=True, flag_value=True, help="Disable proximity deduplication")] = None,
+    exclude: Annotated[str | None, typer.Option("--exclude", help="Text to exclude from results (vector-based)")] = None,
 ) -> None:
     """Search scripture verses using hybrid BM25 + dense retrieval.
 
@@ -149,6 +150,13 @@ def cmd_query(
 
         # effective_dedupe is now available for downstream use (CR-013 B6)
         _ = effective_dedupe
+
+        if exclude is not None and mode == Mode.bm25:
+            emit_error(
+                "bad_flag",
+                "--exclude cannot be used with --mode bm25: vector exclusion has no BM25 analog",
+                exit_code=ExitCode.USER_ERROR,
+            )
 
         if k < 1:
             emit_error("bad_flag", f"k must be >= 1, got {k}", exit_code=ExitCode.USER_ERROR)

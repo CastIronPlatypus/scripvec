@@ -178,3 +178,17 @@ class TestDedupeFlag:
         assert err["error"]["code"] == "bad_flag"
         assert "--dedupe" in err["error"]["message"]
         assert "--no-dedupe" in err["error"]["message"]
+
+
+class TestExcludeFlag:
+    """Contract tests for --exclude flag (CR-014)."""
+
+    def test_exclude_with_bm25_mode_raises_error(self) -> None:
+        """--exclude with --mode bm25 raises error naming both flag and mode."""
+        result = runner.invoke(app, ["query", "test", "--exclude", "avoid this", "--mode", "bm25"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "--exclude" in err["error"]["message"]
+        assert "bm25" in err["error"]["message"].lower()
+        assert "vector" in err["error"]["message"].lower() or "analog" in err["error"]["message"].lower()
