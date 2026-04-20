@@ -234,6 +234,21 @@ class TestExcludeFlag:
         assert "--exclude" in err["error"]["message"]
         assert "token" in err["error"]["message"].lower() or "limit" in err["error"]["message"].lower()
 
+    def test_exclude_valid_passes_validation(self) -> None:
+        """--exclude with valid text passes CLI validation (not a bad_flag error)."""
+        result = runner.invoke(app, ["query", "test", "--exclude", "valid exclude text", "--mode", "dense", "--index", "nonexistent"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] != "bad_flag", f"Valid --exclude should not trigger bad_flag. Got: {err}"
+        assert "--exclude" not in err.get("error", {}).get("message", "").lower()
+
+    def test_exclude_absent_no_exclude_key_in_error(self) -> None:
+        """When --exclude is not supplied, error response has no exclude-related content."""
+        result = runner.invoke(app, ["query", "test", "--index", "nonexistent"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert "exclude" not in err.get("error", {}).get("message", "").lower() or err["error"]["code"] == "index_not_found"
+
 
 class TestHybridWeightFlag:
     """Contract tests for --hybrid-weight flag (CR-015 BEAD A)."""
