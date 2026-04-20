@@ -38,9 +38,10 @@ def _run_query(
     floor: float | None = None,
     window: int = 0,
     dedupe: bool = True,
+    exclude: str | None = None,
 ) -> QueryResult:
     """Execute query and return result."""
-    return query(text, k=k, mode=mode, index=index, floor=floor, window=window, dedupe=dedupe)
+    return query(text, k=k, mode=mode, index=index, floor=floor, window=window, dedupe=dedupe, exclude=exclude)
 
 
 def _to_log_record(
@@ -271,7 +272,7 @@ def cmd_query(
                 exit_code=ExitCode.USER_ERROR,
             )
 
-        result = _run_query(text, k, mode.value, index, floor, effective_window, effective_dedupe)
+        result = _run_query(text, k, mode.value, index, floor, effective_window, effective_dedupe, exclude)
 
         query_id = query_log.new_query_id()
         log_record = _to_log_record(result, query_id)

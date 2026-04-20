@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+
+_logger = logging.getLogger(__name__)
 
 from scripvec_reference.reference import Reference, canonical, extract_references
 
@@ -127,6 +130,8 @@ def query(
     floor: float | None = None,
     window: int = 0,
     dedupe: bool = True,
+    exclude: str | None = None,
+    scope: Scope | None = None,
 ) -> QueryResult:
     """Execute a retrieval query with optional reference extraction.
 
@@ -138,6 +143,7 @@ def query(
         floor: Minimum cosine score for dense mode (0.0-1.0). None or 0.0 is a no-op.
         window: Number of verses before/after each hit to include (0 = no window).
         dedupe: Whether to apply proximity deduplication (default True).
+        exclude: Text to exclude from results via vector similarity (dense mode only).
 
     Returns:
         QueryResult with results and timing.
@@ -193,9 +199,21 @@ def query(
         fused_hits = bm25_hits
 
     elif mode == "dense":
+        exclusion_set: set[str] = set()
+        if exclude is not None:
+            exclude_cfg = load_exclude_config()
+            exclusion_set = set(compute_exclusion_set(exclude, exclude_cfg.exclude_m, idx_dir))
+            dense_k = k + exclude_cfg.exclude_buffer
+        else:
+            dense_k = k
+
         start = time.perf_counter()
-        dense_hits = _run_dense(idx_dir, text, k)
+        dense_hits = _run_dense(idx_dir, text, dense_k)
         latency["dense"] = (time.perf_counter() - start) * 1000
+
+        if exclusion_set:
+            dense_hits = filter_by_exclusion(dense_hits, exclusion_set)
+
         if floor is not None:
             effective_threshold = floor
             if floor > 0.0:
