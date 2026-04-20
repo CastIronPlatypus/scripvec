@@ -33,6 +33,9 @@ Search scripture verses.
 | `--format` | `-f` | enum | `json` | `json` \| `text` |
 | `--index` | `-i` | str | `"latest"` | Index hash or `"latest"` |
 | `--show-scores` | — | bool | `false` | Include scores in output |
+| `--window` | — | int | config | Include N verses before and after each hit |
+| `--dedupe` | — | flag | `true` | Enable proximity deduplication (default) |
+| `--no-dedupe` | — | flag | — | Disable proximity deduplication |
 
 **JSON output shape:**
 ```json
@@ -49,6 +52,14 @@ Search scripture verses.
 ```
 
 **Exit codes:** `0` success · `1` user error · `2` index not found · `3` upstream/embedding error
+
+#### Deduplication and Window Context
+
+**Dedupe runs before window expansion.** When both `--dedupe` (default) and `--window N` are active, the pipeline first deduplicates nearby hits, then attaches context windows to the surviving hits. This order avoids wasting work on windows for hits that would be dropped, and ensures a predictable payload shape.
+
+**Study-flow recommendation:** When using both `--window` and `--dedupe`, consider lower `--k` values (1-3) to get richer context per hit rather than many hits with narrow windows. This is a recommendation, not an enforced rule.
+
+**Default behavior:** Proximity deduplication is on by default. Use `--no-dedupe` when you want raw retrieval order without proximity-based consolidation.
 
 ---
 
