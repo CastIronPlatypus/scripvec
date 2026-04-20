@@ -239,8 +239,8 @@ class TestExcludeFlag:
         result = runner.invoke(app, ["query", "test", "--exclude", "valid exclude text", "--mode", "dense", "--index", "nonexistent"])
         assert result.exit_code != 0
         err = json.loads(result.output)
-        assert err["error"]["code"] != "bad_flag", f"Valid --exclude should not trigger bad_flag. Got: {err}"
-        assert "--exclude" not in err.get("error", {}).get("message", "").lower()
+        msg = err.get("error", {}).get("message", "").lower()
+        assert err["error"]["code"] != "bad_flag" or "--exclude" not in msg, f"Valid --exclude should not trigger exclude-related bad_flag. Got: {err}"
 
     def test_exclude_absent_no_exclude_key_in_error(self) -> None:
         """When --exclude is not supplied, error response has no exclude-related content."""

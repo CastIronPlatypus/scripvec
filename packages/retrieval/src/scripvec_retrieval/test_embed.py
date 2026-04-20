@@ -9,7 +9,7 @@ import pytest
 
 from scripvec_retrieval.config import EmbedConfig
 from scripvec_retrieval.embed import (
-    _estimate_token_count,
+    estimate_token_count,
     _l2_normalize,
     _post_embedding,
     embed,
@@ -20,17 +20,17 @@ class TestEstimateTokenCount:
     """Test token count estimation."""
 
     def test_empty_string(self) -> None:
-        assert _estimate_token_count("") == 0
+        assert estimate_token_count("") == 0
 
     def test_short_text(self) -> None:
-        result = _estimate_token_count("hello world")
+        result = estimate_token_count("hello world")
         assert result == (11 // 3) + 2  # char/3 + word_count
 
     def test_longer_text(self) -> None:
         text = "The quick brown fox jumps over the lazy dog"
         char_estimate = len(text) // 3
         word_count = 9
-        assert _estimate_token_count(text) == char_estimate + word_count
+        assert estimate_token_count(text) == char_estimate + word_count
 
 
 class TestL2Normalize:
