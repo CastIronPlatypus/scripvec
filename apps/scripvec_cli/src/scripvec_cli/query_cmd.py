@@ -9,6 +9,7 @@ from typing import Annotated
 import typer
 
 from scripvec_retrieval.config import load_window_config
+from scripvec_retrieval.embed import MAX_TOKENS, estimate_token_count
 from scripvec_retrieval.query import QueryResult, query
 
 from . import query_log
@@ -157,6 +158,21 @@ def cmd_query(
                 "--exclude cannot be used with --mode bm25: vector exclusion has no BM25 analog",
                 exit_code=ExitCode.USER_ERROR,
             )
+
+        if exclude is not None:
+            if not exclude.strip():
+                emit_error(
+                    "bad_flag",
+                    "--exclude cannot be empty or whitespace-only",
+                    exit_code=ExitCode.USER_ERROR,
+                )
+            exclude_tokens = estimate_token_count(exclude)
+            if exclude_tokens > MAX_TOKENS:
+                emit_error(
+                    "bad_flag",
+                    f"--exclude text exceeds {MAX_TOKENS} token limit (estimated {exclude_tokens} tokens)",
+                    exit_code=ExitCode.USER_ERROR,
+                )
 
         if k < 1:
             emit_error("bad_flag", f"k must be >= 1, got {k}", exit_code=ExitCode.USER_ERROR)

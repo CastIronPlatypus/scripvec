@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from typing import Iterator
 
-from scripvec_retrieval.embed import _estimate_token_count
+from scripvec_retrieval.embed import estimate_token_count
 
 # MVP transitional placeholder per ADR-009 § Conflicts
 # TODO: Move to project-root config file
@@ -93,7 +93,7 @@ def chunk_text(
     if not text:
         return
 
-    total_tokens = _estimate_token_count(text)
+    total_tokens = estimate_token_count(text)
 
     if total_tokens <= floor:
         yield ChunkRecord(
@@ -114,7 +114,7 @@ def chunk_text(
     current_tokens = 0
 
     for sentence in sentences:
-        sentence_tokens = _estimate_token_count(sentence)
+        sentence_tokens = estimate_token_count(sentence)
 
         if sentence_tokens > cap:
             raise RuntimeError(

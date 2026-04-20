@@ -192,3 +192,30 @@ class TestExcludeFlag:
         assert "--exclude" in err["error"]["message"]
         assert "bm25" in err["error"]["message"].lower()
         assert "vector" in err["error"]["message"].lower() or "analog" in err["error"]["message"].lower()
+
+    def test_exclude_empty_string_raises_error(self) -> None:
+        """--exclude '' raises error naming the flag and empty problem."""
+        result = runner.invoke(app, ["query", "test", "--exclude", ""])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "--exclude" in err["error"]["message"]
+        assert "empty" in err["error"]["message"].lower() or "whitespace" in err["error"]["message"].lower()
+
+    def test_exclude_whitespace_only_raises_error(self) -> None:
+        """--exclude with whitespace-only text raises error."""
+        result = runner.invoke(app, ["query", "test", "--exclude", "   "])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "--exclude" in err["error"]["message"]
+
+    def test_exclude_oversize_raises_error(self) -> None:
+        """--exclude with text exceeding 8K token cap raises error."""
+        oversize_text = "word " * 50000
+        result = runner.invoke(app, ["query", "test", "--exclude", oversize_text])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "--exclude" in err["error"]["message"]
+        assert "token" in err["error"]["message"].lower() or "limit" in err["error"]["message"].lower()
