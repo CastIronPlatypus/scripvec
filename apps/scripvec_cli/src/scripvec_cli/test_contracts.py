@@ -360,3 +360,164 @@ class TestCrossRefExpandFlag:
         result = runner.invoke(app, ["query", "test", "--cross-ref-expand", "abc"])
         assert result.exit_code != 0
         assert "cross-ref-expand" in result.output.lower() or "invalid" in result.output.lower()
+
+
+class TestCrossRefMetadataCapability:
+    """Contract tests for cross-ref metadata capability check (CR-015 BEAD E)."""
+
+    def test_cross_ref_expand_without_metadata_raises_exact_error(self, tmp_path: "Path") -> None:
+        """--cross-ref-expand N>0 against index lacking metadata raises exact error message."""
+        from pathlib import Path
+        from unittest.mock import patch, MagicMock
+        from scripvec_retrieval.manifest import Manifest
+
+        mock_manifest = MagicMock(spec=Manifest)
+        mock_manifest.has_cross_references = False
+
+        with (
+            patch("scripvec_cli.query_cmd.resolve_latest", return_value="abc123"),
+            patch("scripvec_cli.query_cmd.index_path", return_value=tmp_path),
+            patch("scripvec_cli.query_cmd.read_manifest", return_value=mock_manifest),
+        ):
+            result = runner.invoke(app, ["query", "test", "--cross-ref-expand", "1", "--index", "abc123"])
+
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "missing_capability"
+        assert err["error"]["message"] == "cross-reference metadata not present in this index — rebuild with cross-reference ingestion enabled"
+
+
+class TestVolumeFlag:
+    """Contract tests for --volume flag (CR-011 Story A)."""
+
+    def test_volume_valid_book_of_mormon(self) -> None:
+        """--volume book_of_mormon parses without flag error."""
+        result = runner.invoke(app, ["query", "test", "--volume", "book_of_mormon", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "volume" not in err.get("error", {}).get("message", "")
+
+    def test_volume_valid_doctrine_and_covenants(self) -> None:
+        """--volume doctrine_and_covenants parses without flag error."""
+        result = runner.invoke(app, ["query", "test", "--volume", "doctrine_and_covenants", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "volume" not in err.get("error", {}).get("message", "")
+
+    def test_volume_unknown_raises_error(self) -> None:
+        """Unknown volume raises error listing valid volumes per ADR-001."""
+        result = runner.invoke(app, ["query", "test", "--volume", "unknown_volume"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "unknown_volume" in err["error"]["message"]
+        assert "book_of_mormon" in err["error"]["message"]
+        assert "doctrine_and_covenants" in err["error"]["message"]
+
+    def test_volume_absent_no_error(self) -> None:
+        """Absent --volume does not trigger volume-related error."""
+        result = runner.invoke(app, ["query", "test", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "volume" not in err.get("error", {}).get("message", "")
+
+
+class TestBookFlag:
+    """Contract tests for --book flag (CR-011 Story B)."""
+
+    def test_book_valid_alma(self) -> None:
+        """--book Alma parses without flag error."""
+        result = runner.invoke(app, ["query", "test", "--book", "Alma", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "book" not in err.get("error", {}).get("message", "")
+
+    def test_book_valid_1_nephi(self) -> None:
+        """--book '1 Nephi' parses without flag error."""
+        result = runner.invoke(app, ["query", "test", "--book", "1 Nephi", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "book" not in err.get("error", {}).get("message", "")
+
+    def test_book_unknown_raises_error(self) -> None:
+        """Unknown book raises error listing valid books per ADR-001."""
+        result = runner.invoke(app, ["query", "test", "--book", "UnknownBook"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "UnknownBook" in err["error"]["message"]
+
+    def test_book_dc_raises_sections_error(self) -> None:
+        """--book D&C raises exact message about sections."""
+        result = runner.invoke(app, ["query", "test", "--book", "D&C"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "sections" in err["error"]["message"]
+        assert "--range" in err["error"]["message"]
+
+    def test_book_not_in_volume_raises_error(self) -> None:
+        """--book from wrong volume raises error per ADR-001."""
+        result = runner.invoke(app, ["query", "test", "--volume", "doctrine_and_covenants", "--book", "Alma"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "Alma" in err["error"]["message"]
+        assert "doctrine_and_covenants" in err["error"]["message"]
+
+    def test_book_absent_no_error(self) -> None:
+        """Absent --book does not trigger book-related error."""
+        result = runner.invoke(app, ["query", "test", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "book" not in err.get("error", {}).get("message", "")
+
+
+class TestRangeFlag:
+    """Contract tests for --range flag (CR-011 Story C)."""
+
+    def test_range_valid_chapter_range(self) -> None:
+        """--range 'Alma 30-42' parses without flag error."""
+        result = runner.invoke(app, ["query", "test", "--range", "Alma 30-42", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "range" not in err.get("error", {}).get("message", "")
+
+    def test_range_valid_single_chapter(self) -> None:
+        """--range 'D&C 76' parses without flag error."""
+        result = runner.invoke(app, ["query", "test", "--range", "D&C 76", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "range" not in err.get("error", {}).get("message", "")
+
+    def test_range_valid_verse_range(self) -> None:
+        """--range '2 Nephi 31:1-21' parses without flag error."""
+        result = runner.invoke(app, ["query", "test", "--range", "2 Nephi 31:1-21", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "range" not in err.get("error", {}).get("message", "")
+
+    def test_range_valid_multi_reference(self) -> None:
+        """--range 'Alma 32; 34:15-41' parses without flag error."""
+        result = runner.invoke(app, ["query", "test", "--range", "Alma 32; 34:15-41", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "range" not in err.get("error", {}).get("message", "")
+
+    def test_range_malformed_raises_error(self) -> None:
+        """Malformed range raises specific parse error per ADR-010."""
+        result = runner.invoke(app, ["query", "test", "--range", "NotABook 999:999"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "Malformed" in err["error"]["message"] or "range" in err["error"]["message"].lower()
+
+    def test_range_outside_volume_raises_error(self) -> None:
+        """--range outside --volume raises error per ADR-001."""
+        result = runner.invoke(app, ["query", "test", "--volume", "book_of_mormon", "--range", "D&C 76"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+
+    def test_range_outside_book_raises_error(self) -> None:
+        """--range outside --book raises error per ADR-001."""
+        result = runner.invoke(app, ["query", "test", "--book", "Alma", "--range", "Helaman 5"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+
+    def test_range_absent_no_error(self) -> None:
+        """Absent --range does not trigger range-related error."""
+        result = runner.invoke(app, ["query", "test", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or "range" not in err.get("error", {}).get("message", "")

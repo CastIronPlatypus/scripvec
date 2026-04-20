@@ -28,6 +28,11 @@ _MANIFEST_FIELDS = frozenset({
     "nonverse_chunk_floor",
 })
 
+# Optional fields with defaults (for backwards compatibility)
+_OPTIONAL_MANIFEST_FIELDS = {
+    "has_cross_references": False,
+}
+
 
 @dataclass(frozen=True)
 class Manifest:
@@ -45,6 +50,7 @@ class Manifest:
     vec_schema_version: int
     nonverse_chunk_cap: int
     nonverse_chunk_floor: int
+    has_cross_references: bool = False
 
 
 def config_hash(m: Manifest) -> str:
@@ -84,7 +90,8 @@ def read_manifest(path: Path | str) -> Manifest:
     if missing:
         raise ValueError(f"Missing required manifest fields: {sorted(missing)}")
 
-    extra = keys - _MANIFEST_FIELDS
+    allowed = _MANIFEST_FIELDS | set(_OPTIONAL_MANIFEST_FIELDS.keys())
+    extra = keys - allowed
     if extra:
         raise ValueError(f"Unknown manifest fields: {sorted(extra)}")
 
@@ -104,6 +111,7 @@ def read_manifest(path: Path | str) -> Manifest:
             vec_schema_version=_int(data, "vec_schema_version"),
             nonverse_chunk_cap=_int(data, "nonverse_chunk_cap"),
             nonverse_chunk_floor=_int(data, "nonverse_chunk_floor"),
+            has_cross_references=_bool_optional(data, "has_cross_references", _OPTIONAL_MANIFEST_FIELDS["has_cross_references"]),
         )
     except (TypeError, ValueError) as e:
         raise ValueError(f"Manifest type error: {e}") from e
@@ -133,6 +141,15 @@ def _float(d: dict[str, Any], key: str) -> float:
 
 
 def _bool(d: dict[str, Any], key: str) -> bool:
+    v = d[key]
+    if not isinstance(v, bool):
+        raise ValueError(f"Field '{key}' must be bool, got {type(v).__name__}")
+    return v
+
+
+def _bool_optional(d: dict[str, Any], key: str, default: bool) -> bool:
+    if key not in d:
+        return default
     v = d[key]
     if not isinstance(v, bool):
         raise ValueError(f"Field '{key}' must be bool, got {type(v).__name__}")
