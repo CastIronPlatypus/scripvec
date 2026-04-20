@@ -37,9 +37,10 @@ def _run_query(
     index: str,
     floor: float | None = None,
     window: int = 0,
+    dedupe: bool = True,
 ) -> QueryResult:
     """Execute query and return result."""
-    return query(text, k=k, mode=mode, index=index, floor=floor, window=window)
+    return query(text, k=k, mode=mode, index=index, floor=floor, window=window, dedupe=dedupe)
 
 
 def _to_log_record(
@@ -93,6 +94,14 @@ def _format_json(result: QueryResult, show_scores: bool) -> str:
             "effective_threshold": result.floor.effective_threshold,
         }
 
+    dedupe_data = None
+    if result.dedupe is not None:
+        dedupe_data = {
+            "enabled": result.dedupe.enabled,
+            "proximity_verses": result.dedupe.proximity_verses,
+            "dropped": result.dedupe.dropped,
+        }
+
     def _format_result(r: "ResultRow") -> dict:
         res: dict = {
             "rank": r.rank,
@@ -117,6 +126,7 @@ def _format_json(result: QueryResult, show_scores: bool) -> str:
         "k": result.k,
         "index": result.index,
         "floor": floor_data,
+        "dedupe": dedupe_data,
         "latency_ms": result.latency_ms,
         "results": [_format_result(r) for r in result.results],
     }
@@ -169,8 +179,6 @@ def cmd_query(
         if no_dedupe:
             effective_dedupe = False
 
-        # effective_dedupe is now available for downstream use (CR-013 B6)
-        _ = effective_dedupe
 
         if exclude is not None and mode == Mode.bm25:
             emit_error(
@@ -263,7 +271,7 @@ def cmd_query(
                 exit_code=ExitCode.USER_ERROR,
             )
 
-        result = _run_query(text, k, mode.value, index, floor, effective_window)
+        result = _run_query(text, k, mode.value, index, floor, effective_window, effective_dedupe)
 
         query_id = query_log.new_query_id()
         log_record = _to_log_record(result, query_id)

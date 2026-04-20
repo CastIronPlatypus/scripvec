@@ -172,3 +172,84 @@ def load_exclude_config() -> ExcludeConfig:
         raise RuntimeError(f"exclude_buffer must be an integer, got {exclude_buffer_raw!r}") from e
 
     return ExcludeConfig(exclude_m=exclude_m, exclude_buffer=exclude_buffer)
+
+
+_DEDUPE_PROXIMITY_M_DEFAULT = 3
+_DEDUPE_K_BUFFER_DEFAULT = 3
+
+
+@dataclass(frozen=True)
+class DedupeConfig:
+    """Immutable dedupe configuration per CR-013."""
+
+    proximity_m: int
+    k_buffer: int
+
+    def __post_init__(self) -> None:
+        if self.proximity_m < 0:
+            raise ValueError("proximity_m must be >= 0")
+        if self.k_buffer < 1:
+            raise ValueError("k_buffer must be >= 1")
+
+
+_SCOPE_BUFFER_DEFAULT = 5
+
+
+@dataclass(frozen=True)
+class ScopeConfig:
+    """Immutable scope configuration per CR-011."""
+
+    scope_buffer: int
+
+    def __post_init__(self) -> None:
+        if self.scope_buffer < 1:
+            raise ValueError("scope_buffer must be >= 1")
+
+
+def load_scope_config() -> ScopeConfig:
+    """Load scope config from optional config file, with defaults.
+
+    Config keys (optional, fall back to defaults):
+        scope_buffer - multiplier on k for candidate retrieval when scope is active
+
+    Raises:
+        RuntimeError: if values are malformed (per ADR-001)
+    """
+    file_config = _read_optional_config_file()
+
+    scope_buffer_raw = file_config.get("scope_buffer", _SCOPE_BUFFER_DEFAULT)
+
+    try:
+        scope_buffer = int(scope_buffer_raw)
+    except (ValueError, TypeError) as e:
+        raise RuntimeError(f"scope_buffer must be an integer, got {scope_buffer_raw!r}") from e
+
+    return ScopeConfig(scope_buffer=scope_buffer)
+
+
+def load_dedupe_config() -> DedupeConfig:
+    """Load dedupe config from optional config file, with defaults.
+
+    Config keys (optional, fall back to defaults):
+        dedupe_proximity_m - proximity cutoff in verses (hits within M are deduped)
+        dedupe_k_buffer - multiplier on k for candidate pool before dedupe
+
+    Raises:
+        RuntimeError: if values are malformed (per ADR-001)
+    """
+    file_config = _read_optional_config_file()
+
+    proximity_m_raw = file_config.get("dedupe_proximity_m", _DEDUPE_PROXIMITY_M_DEFAULT)
+    k_buffer_raw = file_config.get("dedupe_k_buffer", _DEDUPE_K_BUFFER_DEFAULT)
+
+    try:
+        proximity_m = int(proximity_m_raw)
+    except (ValueError, TypeError) as e:
+        raise RuntimeError(f"dedupe_proximity_m must be an integer, got {proximity_m_raw!r}") from e
+
+    try:
+        k_buffer = int(k_buffer_raw)
+    except (ValueError, TypeError) as e:
+        raise RuntimeError(f"dedupe_k_buffer must be an integer, got {k_buffer_raw!r}") from e
+
+    return DedupeConfig(proximity_m=proximity_m, k_buffer=k_buffer)

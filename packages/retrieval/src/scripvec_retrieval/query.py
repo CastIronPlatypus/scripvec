@@ -9,12 +9,15 @@ from pathlib import Path
 from scripvec_reference.reference import Reference, canonical, extract_references
 
 from .bm25 import bm25_topk, load_bm25
-from .config import load_dedupe_config, load_embed_config
+from .config import load_dedupe_config, load_embed_config, load_exclude_config, load_scope_config
 from .dedupe import proximity_dedupe
 from .embed import embed
+from .exclude import compute_exclusion_set, filter_by_exclusion
 from .manifest import read_manifest
 from .paths import index_path, indexes_dir, resolve_latest
 from .rrf import rrf
+from .scope import Scope
+from .scope_filter import filter_by_scope
 from .store import dense_topk, get_verse, open_store
 from .window import Window, get_window
 
@@ -43,6 +46,15 @@ class FloorInfo:
 
 
 @dataclass(frozen=True)
+class DedupeInfo:
+    """Dedupe filtering metadata for response."""
+
+    enabled: bool
+    proximity_verses: int
+    dropped: int
+
+
+@dataclass(frozen=True)
 class QueryResult:
     """Complete query result with timing and metadata."""
 
@@ -53,6 +65,7 @@ class QueryResult:
     results: tuple[ResultRow, ...]
     latency_ms: dict[str, float] = field(default_factory=dict)
     floor: FloorInfo | None = None
+    dedupe: DedupeInfo | None = None
 
 
 def _resolve_index(index: str) -> tuple[str, Path]:
@@ -113,6 +126,7 @@ def query(
     index: str = "latest",
     floor: float | None = None,
     window: int = 0,
+    dedupe: bool = True,
 ) -> QueryResult:
     """Execute a retrieval query with optional reference extraction.
 
@@ -123,6 +137,7 @@ def query(
         index: Index identifier - "latest" or explicit hash.
         floor: Minimum cosine score for dense mode (0.0-1.0). None or 0.0 is a no-op.
         window: Number of verses before/after each hit to include (0 = no window).
+        dedupe: Whether to apply proximity deduplication (default True).
 
     Returns:
         QueryResult with results and timing.
@@ -212,6 +227,30 @@ def query(
     else:
         raise ValueError(f"Unknown mode: {mode!r}. Must be 'hybrid', 'bm25', or 'dense'.")
 
+    dedupe_cfg = load_dedupe_config()
+    dedupe_info: DedupeInfo
+    dropped_count = 0
+
+    if dedupe:
+        candidate_count = k * dedupe_cfg.k_buffer
+        if len(fused_hits) < candidate_count:
+            candidates = fused_hits
+        else:
+            candidates = fused_hits[:candidate_count]
+        fused_hits, dropped_count = proximity_dedupe(candidates, dedupe_cfg.proximity_m, k)
+        dedupe_info = DedupeInfo(
+            enabled=True,
+            proximity_verses=dedupe_cfg.proximity_m,
+            dropped=dropped_count,
+        )
+    else:
+        fused_hits = fused_hits[:k]
+        dedupe_info = DedupeInfo(
+            enabled=False,
+            proximity_verses=dedupe_cfg.proximity_m,
+            dropped=0,
+        )
+
     organic_ids = {vid for vid, _ in fused_hits}
 
     results: list[ResultRow] = []
@@ -263,6 +302,7 @@ def query(
         results=tuple(results),
         latency_ms=latency,
         floor=floor_info,
+        dedupe=dedupe_info,
     )
 
 
