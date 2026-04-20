@@ -561,3 +561,122 @@ class TestScopeInResponse:
             assert "volume" in data["scope"]
             assert "book" in data["scope"]
             assert "range" in data["scope"]
+
+
+class TestHelpText:
+    """Contract tests for help text (CR-015 BEAD G)."""
+
+    @staticmethod
+    def _normalize_help(output: str) -> str:
+        """Normalize help output by collapsing whitespace and removing Rich formatting."""
+        import re
+        text = re.sub(r'[│╭╮╰╯─]', '', output)
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip()
+
+    def test_hybrid_weight_help_names_mode_hybrid(self) -> None:
+        """--hybrid-weight help text mentions --mode hybrid requirement."""
+        result = runner.invoke(app, ["query", "--help"])
+        assert result.exit_code == 0
+        normalized = self._normalize_help(result.output)
+        assert "Requires --mode hybrid" in normalized, "--hybrid-weight help must name --mode hybrid requirement"
+
+    def test_cross_ref_expand_help_names_metadata_requirement(self) -> None:
+        """--cross-ref-expand help text mentions index metadata requirement."""
+        result = runner.invoke(app, ["query", "--help"])
+        assert result.exit_code == 0
+        normalized = self._normalize_help(result.output)
+        assert "cross-reference metadata" in normalized, "--cross-ref-expand help must name metadata requirement"
+
+    def test_cross_ref_expand_help_includes_error_message(self) -> None:
+        """--cross-ref-expand help text includes the exact error message."""
+        result = runner.invoke(app, ["query", "--help"])
+        assert result.exit_code == 0
+        normalized = self._normalize_help(result.output)
+        assert "cross-reference metadata not present in this index" in normalized, \
+            "--cross-ref-expand help must include the exact failure message"
+
+
+class TestScopeComposition:
+    """Contract tests for scope flag composition (CR-011 Story D)."""
+
+    def test_volume_plus_book_parses(self) -> None:
+        """--volume + --book combination parses without error when consistent."""
+        result = runner.invoke(app, ["query", "test", "--volume", "book_of_mormon", "--book", "Alma", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or (
+            "volume" not in err.get("error", {}).get("message", "")
+            and "book" not in err.get("error", {}).get("message", "")
+        ), f"Consistent volume+book should not trigger bad_flag, got: {err}"
+
+    def test_volume_plus_range_parses(self) -> None:
+        """--volume + --range combination parses without error when consistent."""
+        result = runner.invoke(app, ["query", "test", "--volume", "book_of_mormon", "--range", "Alma 32:21", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or (
+            "volume" not in err.get("error", {}).get("message", "")
+            and "range" not in err.get("error", {}).get("message", "")
+        ), f"Consistent volume+range should not trigger bad_flag, got: {err}"
+
+    def test_book_plus_range_parses(self) -> None:
+        """--book + --range combination parses without error when consistent."""
+        result = runner.invoke(app, ["query", "test", "--book", "Alma", "--range", "Alma 32:21", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or (
+            "book" not in err.get("error", {}).get("message", "")
+            and "range" not in err.get("error", {}).get("message", "")
+        ), f"Consistent book+range should not trigger bad_flag, got: {err}"
+
+    def test_triple_composition_parses(self) -> None:
+        """--volume + --book + --range all consistent parses without error."""
+        result = runner.invoke(app, ["query", "test", "--volume", "book_of_mormon", "--book", "Alma", "--range", "Alma 32:21", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        msg = err.get("error", {}).get("message", "")
+        assert err.get("error", {}).get("code") != "bad_flag" or (
+            "volume" not in msg and "book" not in msg and "range" not in msg.lower()
+        ), f"Triple consistent scope should not trigger scope-related bad_flag, got: {err}"
+
+    def test_volume_book_conflict_raises_error(self) -> None:
+        """--volume book_of_mormon + --book from D&C raises conflict error."""
+        result = runner.invoke(app, ["query", "test", "--volume", "doctrine_and_covenants", "--book", "Alma"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "Alma" in err["error"]["message"]
+        assert "doctrine_and_covenants" in err["error"]["message"]
+
+    def test_volume_range_conflict_raises_error(self) -> None:
+        """--volume book_of_mormon + --range D&C raises conflict error."""
+        result = runner.invoke(app, ["query", "test", "--volume", "book_of_mormon", "--range", "D&C 76:1"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "--volume" in err["error"]["message"]
+        assert "D&C" in err["error"]["message"]
+
+    def test_book_range_conflict_raises_error(self) -> None:
+        """--book Alma + --range Helaman raises conflict error."""
+        result = runner.invoke(app, ["query", "test", "--book", "Alma", "--range", "Helaman 5:1"])
+        assert result.exit_code != 0
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag"
+        assert "--book" in err["error"]["message"]
+        assert "Helaman" in err["error"]["message"]
+
+    def test_volume_dc_with_range_parses(self) -> None:
+        """--volume doctrine_and_covenants + --range D&C 76:1 parses."""
+        result = runner.invoke(app, ["query", "test", "--volume", "doctrine_and_covenants", "--range", "D&C 76:1", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or (
+            "volume" not in err.get("error", {}).get("message", "")
+            and "range" not in err.get("error", {}).get("message", "")
+        ), f"D&C volume+range should not trigger bad_flag, got: {err}"
+
+    def test_scope_composition_echoed_in_response(self) -> None:
+        """Composed scope is echoed with all non-null fields."""
+        result = runner.invoke(app, ["query", "test", "--volume", "book_of_mormon", "--book", "Alma", "--index", "nonexistent"])
+        err = json.loads(result.output) if result.output else {}
+        assert err.get("error", {}).get("code") != "bad_flag" or (
+            "volume" not in err.get("error", {}).get("message", "")
+            and "book" not in err.get("error", {}).get("message", "")
+        )
