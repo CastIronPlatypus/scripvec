@@ -53,63 +53,77 @@ class TestQuery:
 
 
 class TestFloorFlag:
-    """Contract tests for --floor flag (CR-012 B1)."""
+    """Contract tests for --floor flag (CR-012 B1, B6)."""
 
     def test_floor_valid_in_range(self) -> None:
         """Valid floor value in range parses without immediate error."""
         result = runner.invoke(app, ["query", "test", "--floor", "0.5", "--index", "nonexistent"])
         err = json.loads(result.output) if result.output else {}
-        assert err.get("error", {}).get("code") != "bad_flag" or "floor" not in err.get("error", {}).get("message", "")
+        assert err.get("error", {}).get("code") != "bad_flag" or "floor" not in err.get("error", {}).get("message", ""), \
+            f"Floor 0.5 should not trigger bad_flag, got: {err}"
 
     def test_floor_boundary_zero(self) -> None:
         """Floor 0.0 is valid (lower boundary)."""
         result = runner.invoke(app, ["query", "test", "--floor", "0.0", "--index", "nonexistent"])
         err = json.loads(result.output) if result.output else {}
-        assert err.get("error", {}).get("code") != "bad_flag" or "floor" not in err.get("error", {}).get("message", "")
+        assert err.get("error", {}).get("code") != "bad_flag" or "floor" not in err.get("error", {}).get("message", ""), \
+            f"Floor 0.0 should be valid, got: {err}"
 
     def test_floor_boundary_one(self) -> None:
         """Floor 1.0 is valid (upper boundary)."""
         result = runner.invoke(app, ["query", "test", "--floor", "1.0", "--index", "nonexistent"])
         err = json.loads(result.output) if result.output else {}
-        assert err.get("error", {}).get("code") != "bad_flag" or "floor" not in err.get("error", {}).get("message", "")
+        assert err.get("error", {}).get("code") != "bad_flag" or "floor" not in err.get("error", {}).get("message", ""), \
+            f"Floor 1.0 should be valid, got: {err}"
 
     def test_floor_integer_zero(self) -> None:
         """Floor 0 (integer) parses same as 0.0."""
         result = runner.invoke(app, ["query", "test", "--floor", "0", "--index", "nonexistent"])
         err = json.loads(result.output) if result.output else {}
-        assert err.get("error", {}).get("code") != "bad_flag" or "floor" not in err.get("error", {}).get("message", "")
+        assert err.get("error", {}).get("code") != "bad_flag" or "floor" not in err.get("error", {}).get("message", ""), \
+            f"Floor 0 should be valid, got: {err}"
 
     def test_floor_out_of_range_high(self) -> None:
-        """Floor > 1.0 raises structured error naming mode and range."""
+        """Floor > 1.0 raises structured error naming mode and range (ADR-001)."""
         result = runner.invoke(app, ["query", "test", "--floor", "1.5", "--mode", "dense"])
-        assert result.exit_code != 0
+        assert result.exit_code != 0, "Out-of-range floor should exit non-zero"
         err = json.loads(result.output)
-        assert err["error"]["code"] == "bad_flag"
-        assert "--floor" in err["error"]["message"]
-        assert "[0.0, 1.0]" in err["error"]["message"]
-        assert "dense" in err["error"]["message"]
+        assert err["error"]["code"] == "bad_flag", f"Expected error code 'bad_flag', got: {err['error']['code']}"
+        assert "--floor" in err["error"]["message"], f"Error message should name --floor, got: {err['error']['message']}"
+        assert "[0.0, 1.0]" in err["error"]["message"], f"Error message should state range, got: {err['error']['message']}"
+        assert "dense" in err["error"]["message"], f"Error message should name mode, got: {err['error']['message']}"
 
     def test_floor_out_of_range_low(self) -> None:
-        """Floor < 0.0 raises structured error naming mode and range."""
+        """Floor < 0.0 raises structured error naming mode and range (ADR-001)."""
         result = runner.invoke(app, ["query", "test", "--floor", "-0.1", "--mode", "hybrid"])
-        assert result.exit_code != 0
+        assert result.exit_code != 0, "Out-of-range floor should exit non-zero"
         err = json.loads(result.output)
-        assert err["error"]["code"] == "bad_flag"
-        assert "--floor" in err["error"]["message"]
-        assert "[0.0, 1.0]" in err["error"]["message"]
-        assert "hybrid" in err["error"]["message"]
+        assert err["error"]["code"] == "bad_flag", f"Expected error code 'bad_flag', got: {err['error']['code']}"
+        assert "--floor" in err["error"]["message"], f"Error message should name --floor, got: {err['error']['message']}"
+        assert "[0.0, 1.0]" in err["error"]["message"], f"Error message should state range, got: {err['error']['message']}"
+        assert "hybrid" in err["error"]["message"], f"Error message should name mode, got: {err['error']['message']}"
+
+    def test_floor_out_of_range_bm25_mode(self) -> None:
+        """Floor out of range in BM25 mode names the mode (ADR-001)."""
+        result = runner.invoke(app, ["query", "test", "--floor", "2.0", "--mode", "bm25"])
+        assert result.exit_code != 0, "Out-of-range floor should exit non-zero"
+        err = json.loads(result.output)
+        assert err["error"]["code"] == "bad_flag", f"Expected error code 'bad_flag', got: {err['error']['code']}"
+        assert "bm25" in err["error"]["message"], f"Error message should name bm25 mode, got: {err['error']['message']}"
 
     def test_floor_non_numeric(self) -> None:
-        """Non-numeric floor raises parse error naming the flag."""
+        """Non-numeric floor raises parse error naming the flag (ADR-001)."""
         result = runner.invoke(app, ["query", "test", "--floor", "abc"])
-        assert result.exit_code != 0
-        assert "floor" in result.output.lower() or "invalid" in result.output.lower()
+        assert result.exit_code != 0, "Non-numeric floor should exit non-zero"
+        assert "floor" in result.output.lower() or "invalid" in result.output.lower(), \
+            f"Error should name floor or indicate invalid input, got: {result.output}"
 
     def test_floor_absent(self) -> None:
         """Absent --floor leaves floor unset (not 0.0)."""
         result = runner.invoke(app, ["query", "test", "--index", "nonexistent"])
         err = json.loads(result.output) if result.output else {}
-        assert err.get("error", {}).get("code") != "bad_flag" or "floor" not in err.get("error", {}).get("message", "")
+        assert err.get("error", {}).get("code") != "bad_flag" or "floor" not in err.get("error", {}).get("message", ""), \
+            f"Absent floor should not trigger floor-related bad_flag, got: {err}"
 
 
 class TestWindowFlag:
