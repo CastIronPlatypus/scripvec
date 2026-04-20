@@ -6,10 +6,13 @@ from scripvec_retrieval.scope import (
     BOOK_TO_VOLUME,
     CANONICAL_VOLUMES,
     VOLUMES_WITH_BOOKS,
+    BookNotInVolumeError,
     MalformedRangeError,
+    RangeOutsideScopeError,
     Scope,
     UnknownBookError,
     UnknownVolumeError,
+    VolumeHasNoBooksError,
     canonicalize_book_for_scope,
     canonicalize_range,
     canonicalize_volume,
@@ -191,3 +194,102 @@ class TestScopeImmutability:
     def test_range_refs_is_tuple(self) -> None:
         scope = Scope.from_flags(range_str="Alma 32:21")
         assert isinstance(scope.range_refs, tuple)
+
+
+class TestScopeConsistencyValidation:
+    """Tests for scope-consistency validation per ADR-001 (F2 bead)."""
+
+    def test_d_and_c_with_book_raises_exact_message(self) -> None:
+        """D&C has sections, not books — exact message required."""
+        with pytest.raises(VolumeHasNoBooksError) as exc_info:
+            Scope.from_flags(book="D&C")
+        assert "D&C has sections, not books; use --range instead" in str(exc_info.value)
+
+    def test_book_not_in_volume_raises(self) -> None:
+        """Book not belonging to specified volume raises with both names."""
+        with pytest.raises(BookNotInVolumeError) as exc_info:
+            Scope.from_flags(volume="doctrine_and_covenants", book="Alma")
+        assert exc_info.value.book == "Alma"
+        assert exc_info.value.volume == "doctrine_and_covenants"
+        assert "Alma" in str(exc_info.value)
+        assert "doctrine_and_covenants" in str(exc_info.value)
+
+    def test_book_in_correct_volume_succeeds(self) -> None:
+        """Book in correct volume passes validation."""
+        scope = Scope.from_flags(volume="book_of_mormon", book="Alma")
+        assert scope.volume == "book_of_mormon"
+        assert scope.book == "Alma"
+
+    def test_range_outside_volume_raises(self) -> None:
+        """Range referencing book outside specified volume raises."""
+        with pytest.raises(RangeOutsideScopeError) as exc_info:
+            Scope.from_flags(volume="doctrine_and_covenants", range_str="Alma 32:21")
+        assert exc_info.value.reference_book == "Alma"
+        assert exc_info.value.scope_filter == "--volume"
+        assert exc_info.value.scope_value == "doctrine_and_covenants"
+        assert "Alma" in str(exc_info.value)
+        assert "--volume" in str(exc_info.value)
+        assert "doctrine_and_covenants" in str(exc_info.value)
+
+    def test_range_outside_book_raises(self) -> None:
+        """Range referencing different book than --book raises."""
+        with pytest.raises(RangeOutsideScopeError) as exc_info:
+            Scope.from_flags(book="Alma", range_str="Helaman 5:12")
+        assert exc_info.value.reference_book == "Helaman"
+        assert exc_info.value.scope_filter == "--book"
+        assert exc_info.value.scope_value == "Alma"
+        assert "Helaman" in str(exc_info.value)
+        assert "--book" in str(exc_info.value)
+        assert "Alma" in str(exc_info.value)
+
+    def test_range_inside_volume_succeeds(self) -> None:
+        """Range within specified volume passes validation."""
+        scope = Scope.from_flags(volume="book_of_mormon", range_str="Alma 32:21")
+        assert scope.volume == "book_of_mormon"
+        assert scope.range_refs is not None
+
+    def test_range_inside_book_succeeds(self) -> None:
+        """Range within specified book passes validation."""
+        scope = Scope.from_flags(book="Alma", range_str="Alma 32:21")
+        assert scope.book == "Alma"
+        assert scope.range_refs is not None
+
+    def test_range_list_validates_all_refs(self) -> None:
+        """All references in a list must be in scope."""
+        with pytest.raises(RangeOutsideScopeError):
+            Scope.from_flags(book="Alma", range_str="Alma 32:21; Moroni 7:5")
+
+    def test_range_endpoints_both_validated(self) -> None:
+        """Both endpoints of a range are validated."""
+        with pytest.raises(RangeOutsideScopeError):
+            Scope.from_flags(
+                volume="book_of_mormon",
+                range_str="D&C 76:1 - D&C 76:10",
+            )
+
+    def test_all_three_consistent_succeeds(self) -> None:
+        """Consistent volume + book + range passes."""
+        scope = Scope.from_flags(
+            volume="book_of_mormon",
+            book="Alma",
+            range_str="Alma 32:21 - Alma 32:23",
+        )
+        assert scope.volume == "book_of_mormon"
+        assert scope.book == "Alma"
+        assert scope.range_refs is not None
+
+    def test_volume_only_no_validation_needed(self) -> None:
+        """Volume-only scope needs no cross-field validation."""
+        scope = Scope.from_flags(volume="book_of_mormon")
+        assert scope.volume == "book_of_mormon"
+
+    def test_book_only_in_bom_succeeds(self) -> None:
+        """Book-only scope for BOM book passes."""
+        scope = Scope.from_flags(book="Alma")
+        assert scope.book == "Alma"
+
+    def test_range_only_no_cross_validation(self) -> None:
+        """Range-only scope has no volume/book to contradict."""
+        scope = Scope.from_flags(range_str="Alma 32:21; D&C 76:1")
+        assert scope.range_refs is not None
+        assert len(scope.range_refs) == 2
