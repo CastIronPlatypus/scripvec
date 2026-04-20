@@ -151,6 +151,10 @@ def query(
         start = time.perf_counter()
         bm25_hits = _run_bm25(idx_dir, text, k)
         latency["bm25"] = (time.perf_counter() - start) * 1000
+        if floor is not None and floor > 0.0 and bm25_hits:
+            top_score = bm25_hits[0][1]
+            threshold = floor * top_score
+            bm25_hits = [(vid, score) for vid, score in bm25_hits if score >= threshold]
         fused_hits = bm25_hits
 
     elif mode == "dense":
