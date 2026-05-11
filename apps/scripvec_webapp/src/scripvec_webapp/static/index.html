@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ScripVec</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Kalam:wght@300;400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    Scrip<span class="vec">vec</span>
+    <span class="tag">~ semantic search for scripture</span>
+  </div>
+  <div class="meta" id="versionLine">loading…</div>
+</div>
+
+<div class="tabs" id="tabs">
+  <button class="tab active" data-scene="s1"><span class="num">01</span>Search</button>
+  <button class="tab" data-scene="s2"><span class="num">02</span>Filters</button>
+  <button class="tab" data-scene="s3"><span class="num">03</span>Research</button>
+  <button class="tab" data-scene="s4"><span class="num">04</span>Details</button>
+</div>
+
+<div class="stage">
+
+  <!-- ===================== SCENE 1: SEARCH-FIRST ===================== -->
+  <section class="scene active" id="s1">
+    <div class="sketch-frame" style="padding: 0 28px 36px;">
+      <div class="s1-hero">
+        <h1>What does scripture say about…</h1>
+        <p>Type a phrase, a feeling, or a question. Get back the verses closest in meaning.</p>
+
+        <div class="s1-search-wrap">
+          <form id="s1Form">
+            <input
+              id="s1Input" class="input big" autocomplete="off"
+              placeholder="overcoming doubt when prayers feel unanswered" />
+          </form>
+          <div class="s1-suggestions">
+            <span class="chip suggest">finding peace in trials</span>
+            <span class="chip suggest">a broken heart and contrite spirit</span>
+            <span class="chip suggest">covenant promises to Israel</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="s1-results-head">
+        <h3 id="s1Heading">Ready when you are.</h3>
+        <div class="s1-filters">
+          <span class="chip mode-chip on" data-mode="hybrid">hybrid</span>
+          <span class="chip mode-chip" data-mode="dense">dense</span>
+          <span class="chip mode-chip" data-mode="bm25">bm25</span>
+          <span class="chip k-chip">top <span id="s1KLabel">10</span></span>
+        </div>
+      </div>
+
+      <div id="s1Results"></div>
+    </div>
+  </section>
+
+  <!-- ===================== SCENE 2: SPLIT PANE ===================== -->
+  <section class="scene" id="s2">
+    <div class="sketch-frame">
+      <div class="s2">
+        <aside class="s2-side">
+          <h4>Filters <span class="ct" id="s2FilterCount"></span></h4>
+
+          <div class="group">
+            <div class="label">VOLUME</div>
+            <div class="row checked" data-vol="Book of Mormon"><span class="box"></span>Book of Mormon</div>
+            <div class="row checked" data-vol="D&amp;C"><span class="box"></span>Doctrine &amp; Covenants</div>
+          </div>
+
+          <div class="group" id="s2BookGroup">
+            <div class="label">BOOK</div>
+            <div class="book-list" id="s2BookList"><div class="empty">loading…</div></div>
+          </div>
+
+          <div class="group">
+            <div class="label">MODE</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <span class="chip mode-chip on" data-mode="hybrid">hybrid</span>
+              <span class="chip mode-chip" data-mode="dense">dense</span>
+              <span class="chip mode-chip" data-mode="bm25">bm25</span>
+            </div>
+          </div>
+
+          <div class="group">
+            <div class="label">TOP-K — <span id="s2KLabel">15</span></div>
+            <input type="range" id="s2K" min="1" max="50" value="15">
+            <div class="slider-readout"><span>1</span><span style="float:right;">50</span></div>
+          </div>
+
+          <div class="group">
+            <div class="label">SIMILARITY ≥ <span id="s2FloorLabel">0.00</span></div>
+            <input type="range" id="s2Floor" min="0" max="100" value="0">
+            <div class="slider-readout"><span>0.0</span><span style="float:right;">1.0</span></div>
+          </div>
+
+          <button class="btn ghost" id="s2Reset" style="margin-top: 10px; font-size: 16px;">reset all</button>
+        </aside>
+
+        <main class="s2-main">
+          <form id="s2Form" class="qbar">
+            <input id="s2Input" class="input" placeholder="search…" />
+            <button class="btn" type="submit">search</button>
+          </form>
+
+          <div class="s2-active-filters" id="s2ActiveFilters"></div>
+
+          <div class="s2-result-meta" id="s2Meta">
+            <span>no search yet</span>
+            <span></span>
+          </div>
+
+          <div id="s2Results"></div>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SCENE 3: RESEARCH ===================== -->
+  <section class="scene" id="s3">
+    <div class="s3-wrap">
+      <!-- LEFT: Notes & Verses list -->
+      <aside class="nv-panel">
+        <div class="nv-head">Notes &amp; Verses <span class="ct" id="nvCount">0 items</span></div>
+        <div class="nv-title" id="nvTitle"><span class="nv-name">Untitled list</span><span class="dot">●</span></div>
+        <div class="nv-list" id="nvList">
+          <div class="nv-empty">Pin verses from your searches.<br>Add notes between them.</div>
+        </div>
+        <div class="nv-actions">
+          <button class="nv-btn" id="addNote">+ note</button>
+          <button class="nv-btn primary" id="saveList">save</button>
+          <button class="nv-btn accent" id="exportList">export</button>
+        </div>
+      </aside>
+
+      <!-- CENTER: conversation -->
+      <div class="s3">
+        <div class="s3-thread" id="s3Thread">
+          <div class="empty">Ask anything. Each query becomes a new turn.</div>
+        </div>
+        <form class="s3-composer" id="s3Form">
+          <input id="s3Input" placeholder="ask a follow-up…" />
+          <button class="btn" type="submit">search →</button>
+        </form>
+      </div>
+
+      <!-- RIGHT: saved lists -->
+      <aside class="saved-panel">
+        <div class="saved-head">Saved lists <span class="ct" id="savedCount">0</span></div>
+        <div id="savedList"><div class="empty">No saved lists yet.</div></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===================== SCENE 4: DETAILS ===================== -->
+  <section class="scene" id="s4">
+    <div class="sketch-frame" style="padding: 22px;">
+      <form id="s4Form" style="display: flex; gap: 10px; align-items: center; margin-bottom: 22px;">
+        <input id="s4Input" class="input" placeholder="search to populate the left rail…" />
+        <button class="btn" type="submit">search</button>
+      </form>
+
+      <div class="s4">
+        <aside class="s4-results">
+          <div class="rhead">Your search <span class="ct" id="s4ResultCount">0 verses</span></div>
+          <div class="query" id="s4Query"><b>query</b><span id="s4QueryText">(none)</span></div>
+          <div id="s4ResultList"><div class="empty">Search above, or click a verse from another tab.</div></div>
+        </aside>
+
+        <article class="s4-reader" id="s4Reader">
+          <div class="breadcrumb" id="s4Breadcrumb">—</div>
+          <h2 id="s4Heading">No verse selected</h2>
+          <div class="s4-chapter" id="s4Chapter">
+            <p class="empty">Click a verse on the left, or run a search above.</p>
+          </div>
+        </article>
+
+        <aside class="s4-side">
+          <div class="panel">
+            <h5>Semantically similar <span class="ct" id="s4SimilarCount"></span></h5>
+            <div id="s4Similar" style="flex: 1; overflow-y: auto;">
+              <div class="empty">Open a verse to see its neighbors.</div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- TWEAKS -->
+<button class="tweaks-toggle" id="tweaksToggle">✎ tweak</button>
+<div class="tweaks" id="tweaksPanel">
+  <h4>Tweaks <span class="x" id="closeTweaks">close ✕</span></h4>
+
+  <div class="tw-row">
+    <label>show similarity scores</label>
+    <div class="opts" data-tw="scores">
+      <span class="opt on" data-val="show">show</span>
+      <span class="opt" data-val="hide">hide</span>
+    </div>
+  </div>
+
+  <div class="tw-row">
+    <label>density</label>
+    <div class="opts" data-tw="density">
+      <span class="opt on" data-val="comfy">comfy</span>
+      <span class="opt" data-val="compact">compact</span>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

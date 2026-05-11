@@ -1,0 +1,19 @@
+[project]
+name = "scripvec-webapp"
+version = "0.0.0"
+description = "Web front-end for scripvec — thin layer over the scripvec CLI per CR-010."
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+]
+
+[project.scripts]
+scripvec-web = "scripvec_webapp.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/scripvec_webapp"]
