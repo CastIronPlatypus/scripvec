@@ -37,6 +37,9 @@ Search scripture verses.
 | `--window` | — | int | config | Include N verses before and after each hit |
 | `--dedupe` | — | flag | `true` | Enable proximity deduplication (default) |
 | `--no-dedupe` | — | flag | — | Disable proximity deduplication |
+| `--volume` | — | str | — | Filter results to a specific volume (`book_of_mormon` \| `doctrine_and_covenants`) |
+| `--book` | — | str | — | Filter results to a specific book (e.g., `Alma`) |
+| `--range` | — | str | — | Filter to reference range (e.g., `Alma 30-42`, `2 Nephi 31:1-21`) |
 
 **JSON output shape:**
 ```json

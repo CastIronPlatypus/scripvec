@@ -1,0 +1,7 @@
+[project]
+name = "scripvec_webapp"
+version = "0.1.0"
+description = "Web application prototype for scripvec"
+readme = "business_logic.md"
+requires-python = ">=3.11"
+dependencies = []

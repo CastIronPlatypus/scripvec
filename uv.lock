@@ -10,6 +10,7 @@ members = [
     "scripvec-eval",
     "scripvec-reference",
     "scripvec-retrieval",
+    "scripvec-webapp",
 ]
 
 [[package]]
@@ -494,6 +495,11 @@ requires-dist = [
     { name = "scripvec-reference", editable = "packages/reference" },
     { name = "sqlite-vec" },
 ]
+
+[[package]]
+name = "scripvec-webapp"
+version = "0.1.0"
+source = { virtual = "apps/scripvec_webapp" }
 
 [[package]]
 name = "shellingham"

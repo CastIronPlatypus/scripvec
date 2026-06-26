@@ -1,0 +1,81 @@
+# Debugging session audit trail.
+# Copy this file to a session-specific path (e.g. ./debug-<bug-id>.yaml)
+# and update it as you progress through the skill.
+#
+# Constraints (enforced by SKILL.md):
+#   - findings  : 1-3 entries per step, each <= 2 sentences, STRICT observations only.
+#   - theories  : 0-2 entries per step, each <= 2 sentences, current hypotheses.
+#   - disproved : superseded theories, each with a one-line reason.
+#
+# A "finding" must be something you actually observed (log line, command output,
+# file content, stack frame). If you cannot cite a source, it's a theory.
+
+session:
+  id: bug-YYYY-MM-DD-slug
+  summary: ""                    # one-line description of the symptom
+  started: YYYY-MM-DDTHH:MM:SS
+  status: open                   # open | fixed | abandoned
+
+  target_behavior: ""            # what "working" looks like, in observable terms
+  done_when: ""                  # the test/check that closes the loop
+
+steps:
+
+  understand_system:
+    work:
+      findings: []
+      theories: []
+      disproved: []
+
+  make_it_fail:
+    work:
+      findings: []
+      theories: []
+      disproved: []
+
+  quit_guessing_look:
+    work:
+      findings: []
+      theories: []
+      disproved: []
+
+  divide_and_conquer:
+    work:
+      findings: []
+      theories: []
+      disproved: []
+
+  change_one_thing:
+    work:
+      findings: []
+      theories: []
+      disproved: []
+
+  audit_trail:
+    work:
+      findings: []
+      theories: []
+      disproved: []
+
+  check_obvious:
+    work:
+      findings: []
+      theories: []
+      disproved: []
+
+  get_fresh_view:
+    work:
+      findings: []
+      theories: []
+      disproved: []
+
+  verify_fix:
+    work:
+      findings: []
+      theories: []
+      disproved: []
+
+resolution:
+  root_cause: ""
+  fix: ""
+  verified_by: ""

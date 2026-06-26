@@ -1,0 +1,1494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ScripVec — Wireframes</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Kalam:wght@300;400;700&family=Gloria+Hallelujah&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fbfaf6;
+    --paper-2: #f4f1e8;
+    --ink: #1f1d1a;
+    --ink-2: #4a463f;
+    --ink-3: #8a847a;
+    --rule: #2a2622;
+    --accent: #c84b1f;     /* sketch red marker */
+    --accent-2: #2a5fb5;   /* blueprint blue */
+    --highlight: #ffe16b;  /* yellow highlighter */
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Kalam', 'Caveat', sans-serif;
+    font-size: 16px;
+  }
+  /* paper texture */
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(0,0,0,0.012) 0, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(0,0,0,0.012) 0, transparent 40%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.85' numOctaves='2' seed='5'/><feColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.09 0 0 0 0 0.08 0 0 0 0.04 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>");
+  }
+
+  .topbar {
+    position: relative; z-index: 5;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 28px 10px;
+    border-bottom: 1.5px dashed var(--ink-3);
+  }
+  .brand {
+    font-family: 'Caveat', cursive;
+    font-size: 34px; font-weight: 700; letter-spacing: 0.5px;
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  .brand .vec { color: var(--accent); }
+  .brand .tag {
+    font-family: 'Kalam', sans-serif; font-size: 13px; color: var(--ink-3);
+    font-weight: 400; transform: rotate(-2deg); padding-left: 6px;
+  }
+  .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.12em;
+  }
+
+  .tabs {
+    position: relative; z-index: 5;
+    display: flex; gap: 6px; padding: 14px 28px 0;
+    border-bottom: 1.5px solid var(--rule);
+    flex-wrap: wrap;
+  }
+  .tab {
+    font-family: 'Caveat', cursive;
+    font-size: 22px;
+    background: transparent;
+    border: 1.5px solid var(--rule);
+    border-bottom: none;
+    border-radius: 12px 14px 2px 2px;
+    padding: 8px 18px 10px;
+    cursor: pointer;
+    color: var(--ink-2);
+    transform: translateY(2px);
+    transition: all 120ms ease;
+    position: relative;
+  }
+  .tab:nth-child(2n) { transform: translateY(2px) rotate(-0.4deg); border-radius: 14px 12px 2px 2px; }
+  .tab:hover { background: var(--paper-2); color: var(--ink); }
+  .tab.active {
+    background: var(--paper);
+    color: var(--ink);
+    transform: translateY(3px);
+    box-shadow: 0 -2px 0 var(--paper);
+    z-index: 2;
+  }
+  .tab .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--ink-3);
+    margin-right: 6px; vertical-align: middle;
+  }
+
+  .stage {
+    position: relative; z-index: 4;
+    padding: 24px 28px 80px;
+    max-width: 1280px; margin: 0 auto;
+  }
+
+  .scene {
+    display: none;
+  }
+  .scene.active { display: block; }
+
+  /* -------- shared sketch primitives -------- */
+  .annotation {
+    font-family: 'Caveat', cursive;
+    color: var(--accent);
+    font-size: 18px;
+    transform: rotate(-2deg);
+    display: inline-block;
+  }
+  .arrow {
+    font-family: 'Caveat', cursive; color: var(--accent); font-size: 22px;
+  }
+  .sticky {
+    background: #fff5b8;
+    padding: 10px 14px;
+    font-family: 'Kalam', sans-serif; font-size: 13px;
+    color: #5a4a10;
+    box-shadow: 2px 3px 0 rgba(0,0,0,0.08), inset 0 -8px 12px rgba(0,0,0,0.03);
+    transform: rotate(-1.2deg);
+    border-radius: 2px;
+    max-width: 220px;
+    line-height: 1.35;
+  }
+  .sticky b { display: block; font-family: 'Caveat', cursive; font-size: 15px; margin-bottom: 2px; color: #3a3208; }
+
+  .sketch-frame {
+    border: 2px solid var(--rule);
+    border-radius: 14px;
+    background: var(--paper);
+    padding: 28px;
+    position: relative;
+    box-shadow: 4px 5px 0 rgba(0,0,0,0.06);
+  }
+  .sketch-frame::before {
+    /* hand-drawn corner wobble */
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    border-radius: 14px;
+    background:
+      radial-gradient(circle at 0 0, transparent 14px, rgba(0,0,0,0.02) 16px, transparent 18px);
+  }
+  .frame-label {
+    position: absolute; top: -14px; left: 22px;
+    background: var(--paper);
+    padding: 0 12px;
+    font-family: 'Caveat', cursive; font-size: 22px;
+    color: var(--ink);
+  }
+  .frame-label .pill {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--accent);
+    background: var(--paper); border: 1px solid var(--accent); border-radius: 99px;
+    padding: 2px 8px; margin-left: 8px; vertical-align: middle;
+    text-transform: uppercase; letter-spacing: 0.1em;
+  }
+
+  /* placeholder line */
+  .ph-line {
+    height: 10px; border-radius: 3px;
+    background: repeating-linear-gradient(90deg,
+      var(--ink-3) 0 6px, transparent 6px 10px);
+    opacity: 0.5;
+  }
+  .ph-line.short { width: 40%; }
+  .ph-line.med { width: 70%; }
+  .ph-line.long { width: 92%; }
+  .ph-block {
+    background: repeating-linear-gradient(135deg,
+      var(--ink-3) 0 1px, transparent 1px 8px);
+    opacity: 0.35;
+    border-radius: 4px;
+  }
+
+  /* sketchy button */
+  .btn {
+    font-family: 'Caveat', cursive;
+    font-size: 20px;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 8px 22px 10px;
+    border-radius: 30px 28px 32px 27px;
+    cursor: pointer;
+    box-shadow: 2px 3px 0 rgba(0,0,0,0.15);
+    display: inline-block;
+  }
+  .btn.ghost {
+    background: transparent;
+    color: var(--ink);
+    border: 1.5px solid var(--rule);
+  }
+  .btn.accent { background: var(--accent); }
+
+  /* sketchy input */
+  .input {
+    border: 1.8px solid var(--rule);
+    background: var(--paper);
+    border-radius: 12px 14px 11px 13px;
+    padding: 14px 18px;
+    font-family: 'Kalam', sans-serif;
+    font-size: 17px;
+    color: var(--ink);
+    width: 100%;
+  }
+  .input.big {
+    font-family: 'Caveat', cursive;
+    font-size: 30px;
+    padding: 18px 24px;
+    border-radius: 18px 22px 16px 20px;
+  }
+  .input.big::placeholder { color: var(--ink-3); }
+  .input::placeholder { color: var(--ink-3); }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1.5px solid var(--rule);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-family: 'Kalam', sans-serif; font-size: 13px;
+    background: var(--paper);
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+  .chip.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+  .chip.on .dot { background: var(--paper); }
+
+  /* result card */
+  .verse {
+    border-bottom: 1.5px dashed var(--ink-3);
+    padding: 18px 0;
+    display: grid;
+    grid-template-columns: 70px 1fr 80px;
+    gap: 18px;
+    align-items: start;
+  }
+  .verse:last-child { border-bottom: none; }
+  .ref {
+    font-family: 'Caveat', cursive; font-weight: 600;
+    font-size: 18px; color: var(--accent);
+    line-height: 1.1;
+  }
+  .ref small {
+    display: block; font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--ink-3); font-weight: 400;
+    margin-top: 4px; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .verse-body {
+    font-family: 'Kalam', sans-serif;
+    font-size: 15px; line-height: 1.55; color: var(--ink);
+  }
+  .verse-body .hl { background: var(--highlight); padding: 0 2px; }
+  .score {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--ink-3); text-align: right;
+    line-height: 1.3;
+  }
+  .score b { display: block; font-size: 16px; color: var(--ink); font-weight: 500; }
+  .score .bar {
+    margin-top: 6px; height: 4px; background: var(--paper-2);
+    border-radius: 2px; overflow: hidden;
+  }
+  .score .bar i { display: block; height: 100%; background: var(--accent); }
+
+  /* --------- scene 1: search-first --------- */
+  .s1-hero {
+    text-align: center;
+    padding: 60px 0 28px;
+  }
+  .s1-hero h1 {
+    font-family: 'Caveat', cursive;
+    font-weight: 600;
+    font-size: 56px;
+    margin: 0 0 8px;
+    letter-spacing: 0.5px;
+  }
+  .s1-hero p {
+    font-family: 'Kalam', sans-serif;
+    color: var(--ink-2);
+    font-size: 17px;
+    margin: 0 0 30px;
+  }
+  .s1-search-wrap {
+    max-width: 720px; margin: 0 auto;
+    position: relative;
+  }
+  .s1-suggestions {
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+    margin-top: 16px;
+  }
+  .s1-results-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin: 36px 0 8px;
+    border-bottom: 1.5px solid var(--rule);
+    padding-bottom: 8px;
+  }
+  .s1-results-head h3 {
+    font-family: 'Caveat', cursive; font-size: 26px; margin: 0; font-weight: 600;
+  }
+  .s1-filters {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .s1-annot { position: absolute; }
+
+  /* --------- scene 2: split pane --------- */
+  .s2 { display: grid; grid-template-columns: 280px 1fr; gap: 24px; }
+  .s2-side {
+    border-right: 1.5px dashed var(--ink-3);
+    padding-right: 22px;
+  }
+  .s2-side h4 {
+    font-family: 'Caveat', cursive; font-size: 22px;
+    margin: 0 0 10px; font-weight: 600;
+  }
+  .s2-side h4 .count {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--ink-3); margin-left: 6px;
+  }
+  .s2-side .group { margin-bottom: 22px; }
+  .s2-side .row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 0;
+    font-family: 'Kalam', sans-serif; font-size: 14px;
+    color: var(--ink-2);
+  }
+  .s2-side .row .box {
+    width: 14px; height: 14px;
+    border: 1.5px solid var(--rule); border-radius: 3px;
+    display: inline-block; flex-shrink: 0;
+    position: relative;
+  }
+  .s2-side .row.checked .box::after {
+    content: '✓'; position: absolute; inset: -2px 0 0 1px;
+    color: var(--accent); font-family: 'Caveat', cursive; font-size: 16px;
+  }
+  .s2-side .row .num {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--ink-3);
+  }
+  .s2-side .slider-row {
+    margin-top: 6px;
+  }
+  .slider-track {
+    height: 6px; background: var(--paper-2); border-radius: 3px;
+    position: relative; margin: 12px 4px 6px;
+  }
+  .slider-track i {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: var(--ink); border-radius: 3px;
+  }
+  .slider-track .knob {
+    position: absolute; top: 50%; transform: translate(-50%, -50%);
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--paper); border: 2px solid var(--ink);
+  }
+  .s2-main .qbar {
+    display: flex; gap: 10px; margin-bottom: 10px;
+  }
+  .s2-main .qbar .input { flex: 1; }
+  .s2-result-meta {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.1em;
+    padding-bottom: 12px; border-bottom: 1.5px dashed var(--ink-3);
+    display: flex; justify-content: space-between;
+  }
+
+  /* --------- scene 3: conversational + notes list --------- */
+  .s3-wrap {
+    display: grid;
+    grid-template-columns: 260px 1fr 240px;
+    gap: 20px;
+    align-items: stretch;
+  }
+  .s3 {
+    position: relative;
+  }
+  .s3-thread {
+    border: 2px solid var(--rule);
+    border-radius: 18px;
+    background: var(--paper);
+    padding: 24px 28px;
+    box-shadow: 4px 5px 0 rgba(0,0,0,0.06);
+    min-height: 520px;
+  }
+  .msg { margin-bottom: 22px; max-width: 80%; }
+  .msg.you {
+    margin-left: auto;
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 18px 18px 4px 18px;
+    padding: 12px 18px;
+    font-family: 'Caveat', cursive; font-size: 22px;
+  }
+  .msg.bot .label {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.12em;
+    margin-bottom: 6px;
+  }
+  .msg.bot .verses {
+    border-left: 3px solid var(--accent); padding-left: 14px;
+  }
+  .msg.bot .v {
+    margin-bottom: 14px;
+    position: relative;
+    padding: 6px 8px 6px 0;
+    border-radius: 6px;
+  }
+  .msg.bot .v:hover { background: rgba(200,75,31,0.04); }
+  .msg.bot .v .pin-btn {
+    position: absolute; top: 4px; right: 4px;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 1.5px solid var(--accent);
+    background: var(--paper);
+    color: var(--accent);
+    cursor: pointer;
+    display: none;
+    align-items: center; justify-content: center;
+    box-shadow: 1px 2px 0 rgba(0,0,0,0.08);
+    padding: 0;
+  }
+  .msg.bot .v .pin-btn .material-icons {
+    font-size: 18px; line-height: 1;
+  }
+  .msg.bot .v:hover .pin-btn { display: flex; }
+  .msg.bot .v.pinned .pin-btn {
+    display: flex;
+    background: var(--accent); color: var(--paper);
+  }
+  .msg.bot .v .ref-line {
+    font-family: 'Caveat', cursive; font-size: 18px; color: var(--accent);
+    font-weight: 600; margin-bottom: 4px;
+  }
+  .msg.bot .v .ref-line .sc {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--ink-3); margin-left: 8px;
+  }
+  .msg.bot .v .body {
+    font-family: 'Kalam', sans-serif; font-size: 15px; line-height: 1.5;
+  }
+  .msg.bot .followup {
+    margin-top: 14px;
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .s3-composer {
+    margin-top: 16px;
+    display: flex; gap: 10px; align-items: center;
+    border: 1.8px solid var(--rule);
+    border-radius: 30px 32px 28px 30px;
+    padding: 8px 8px 8px 18px;
+    background: var(--paper);
+  }
+  .s3-composer input {
+    flex: 1; border: none; background: transparent; outline: none;
+    font-family: 'Caveat', cursive; font-size: 22px; color: var(--ink);
+  }
+  .s3-composer input::placeholder { color: var(--ink-3); }
+
+  /* notes & verses list (LEFT) */
+  .nv-panel {
+    border: 2px solid var(--rule);
+    border-radius: 14px;
+    background: var(--paper);
+    box-shadow: 3px 4px 0 rgba(0,0,0,0.06);
+    padding: 14px 14px 12px;
+    display: flex; flex-direction: column;
+    height: 100%;
+  }
+  .nv-head {
+    font-family: 'Caveat', cursive; font-size: 22px; font-weight: 600;
+    margin-bottom: 2px; display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .nv-head .ct {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--ink-3); font-weight: 400;
+  }
+  .nv-title {
+    font-family: 'Kalam', sans-serif; font-size: 13px;
+    color: var(--ink-2); font-style: italic;
+    border-bottom: 1px dashed var(--ink-3);
+    padding-bottom: 6px; margin-bottom: 10px;
+  }
+  .nv-title .dot { color: var(--accent); font-size: 14px; margin-left: 4px; }
+  .nv-list { flex: 1; overflow-y: auto; }
+  .nv-item {
+    padding: 8px 8px 8px 22px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    font-family: 'Kalam', sans-serif;
+    font-size: 13px; line-height: 1.4;
+    color: var(--ink);
+    position: relative;
+    border: 1px solid transparent;
+    display: block;
+  }
+  .nv-item.verse .ref-line {
+    font-family: 'Caveat', cursive; font-size: 16px; color: var(--accent);
+    font-weight: 600; margin-bottom: 3px; display: block;
+  }
+  .nv-item.verse .body {
+    color: var(--ink-2); display: block;
+  }
+  .nv-item:hover { background: var(--paper-2); }
+  .nv-item .marker {
+    position: absolute; left: 4px; top: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--ink-3); text-transform: uppercase;
+  }
+  .nv-item.verse .marker { color: var(--accent); }
+  .nv-item.note {
+    background: rgba(255,225,107,0.25);
+    border-color: rgba(200,170,20,0.3);
+    font-family: 'Caveat', cursive;
+    font-size: 16px;
+    color: #3a3208;
+    outline: none;
+  }
+  .nv-item.note:focus { background: rgba(255,225,107,0.55); border-color: var(--accent); }
+  .nv-item .rm {
+    position: absolute; top: 4px; right: 6px;
+    font-family: 'Kalam', sans-serif; font-size: 11px;
+    color: var(--ink-3); cursor: pointer; display: none;
+  }
+  .nv-item:hover .rm { display: block; }
+  .nv-item .rm:hover { color: var(--accent); }
+
+  .nv-empty {
+    padding: 30px 10px;
+    text-align: center;
+    font-family: 'Kalam', sans-serif;
+    font-size: 13px; color: var(--ink-3);
+    font-style: italic;
+    line-height: 1.5;
+  }
+  .nv-actions {
+    display: flex; gap: 6px; margin-top: 10px;
+    padding-top: 10px; border-top: 1px dashed var(--ink-3);
+    flex-wrap: wrap;
+  }
+  .nv-btn {
+    flex: 1; min-width: 0;
+    font-family: 'Caveat', cursive; font-size: 15px;
+    background: var(--paper); border: 1.5px solid var(--rule);
+    border-radius: 18px 20px 16px 19px;
+    padding: 5px 10px 6px;
+    cursor: pointer; color: var(--ink);
+    white-space: nowrap;
+  }
+  .nv-btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .nv-btn.accent { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+
+  /* saved lists (RIGHT) */
+  .saved-panel {
+    border: 1.5px dashed var(--ink-3);
+    border-radius: 12px;
+    padding: 14px 14px 12px;
+    background: var(--paper);
+    height: 100%;
+    display: flex; flex-direction: column;
+  }
+  .saved-head {
+    font-family: 'Caveat', cursive; font-size: 20px; font-weight: 600;
+    margin-bottom: 10px;
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .saved-head .ct {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--ink-3); font-weight: 400;
+  }
+  .saved-item {
+    padding: 10px 10px 10px;
+    border: 1.2px solid var(--ink-3);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    background: var(--paper);
+  }
+  .saved-item:hover { background: var(--paper-2); border-color: var(--rule); }
+  .saved-item.active { border-color: var(--accent); background: rgba(200,75,31,0.04); }
+  .saved-item .name {
+    font-family: 'Caveat', cursive; font-size: 17px; font-weight: 600;
+    color: var(--ink); margin-bottom: 2px;
+  }
+  .saved-item .meta {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.08em;
+  }
+
+  /* --------- scene 4: reader-style --------- */
+  .s4 { display: grid; grid-template-columns: 260px 1fr 320px; gap: 24px; }
+  .s4-results {
+    border-right: 1.5px dashed var(--ink-3);
+    padding-right: 18px;
+    max-height: 820px;
+    overflow-y: auto;
+  }
+  .s4-results .rhead {
+    font-family: 'Caveat', cursive; font-size: 20px;
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 4px;
+  }
+  .s4-results .rhead .ct {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--ink-3); font-weight: 400;
+  }
+  .s4-results .query {
+    font-family: 'Kalam', sans-serif; font-size: 12px;
+    color: var(--ink-2); font-style: italic;
+    padding: 6px 10px; background: var(--paper-2); border-radius: 6px;
+    margin-bottom: 12px; line-height: 1.35;
+  }
+  .s4-results .query b { font-style: normal; color: var(--ink-3); font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 2px; font-weight: 500; }
+  .s4-res {
+    padding: 10px 10px 12px;
+    border-radius: 8px;
+    border: 1.5px solid transparent;
+    margin-bottom: 4px;
+    cursor: pointer;
+  }
+  .s4-res:hover { background: var(--paper-2); }
+  .s4-res.active { background: var(--paper-2); border-color: var(--accent); }
+  .s4-res .top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 3px;
+  }
+  .s4-res .top .r {
+    font-family: 'Caveat', cursive; font-weight: 600;
+    font-size: 15px; color: var(--accent);
+  }
+  .s4-res .top .s {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--ink-3);
+  }
+  .s4-res.active .top .s { color: var(--accent); font-weight: 500; }
+  .s4-res .snip {
+    font-family: 'Kalam', sans-serif; font-size: 13px;
+    color: var(--ink-2); line-height: 1.4;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .s4-reader {
+    border: 2px solid var(--rule); border-radius: 14px;
+    padding: 32px 36px; background: var(--paper);
+    box-shadow: 4px 5px 0 rgba(0,0,0,0.06);
+  }
+  .s4-reader .breadcrumb {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.12em;
+    margin-bottom: 6px;
+  }
+  .s4-reader h2 {
+    font-family: 'Caveat', cursive; font-size: 38px; margin: 0 0 18px;
+    font-weight: 600;
+  }
+  .s4-chapter p {
+    font-family: 'Kalam', sans-serif; font-size: 16px; line-height: 1.7;
+    color: var(--ink); margin: 0 0 12px;
+    text-indent: 1.4em;
+  }
+  .s4-chapter p .vn {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--accent); vertical-align: super;
+    margin-right: 4px; font-weight: 500;
+  }
+  .s4-chapter p.focus {
+    background: linear-gradient(transparent 60%, rgba(255,225,107,0.45) 60%);
+    padding: 4px 6px; margin-left: -6px;
+    border-left: 3px solid var(--accent);
+    padding-left: 12px;
+    text-indent: 0;
+  }
+  .s4-side .panel {
+    border: 1.5px dashed var(--ink-3);
+    border-radius: 12px;
+    padding: 18px 18px 14px;
+    margin-bottom: 18px;
+    min-height: 820px;
+  }
+  .s4-side .panel h5 {
+    font-family: 'Caveat', cursive; font-size: 20px; margin: 0 0 10px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-weight: 600;
+  }
+  .s4-side .panel h5 .ct {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--ink-3); font-weight: 400;
+  }
+  .s4-side .similar-row {
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--ink-3);
+  }
+  .s4-side .similar-row:last-child { border-bottom: none; }
+  .s4-side .similar-row .r {
+    font-family: 'Caveat', cursive; font-weight: 600; color: var(--accent);
+    font-size: 15px; display: flex; justify-content: space-between;
+  }
+  .s4-side .similar-row .r span:last-child {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-3);
+    font-weight: 400;
+  }
+  .s4-side .similar-row .b {
+    font-family: 'Kalam', sans-serif; font-size: 13px; color: var(--ink-2);
+    line-height: 1.45; margin-top: 4px;
+  }
+
+  /* --------- floating tweaks panel --------- */
+  .tweaks {
+    position: fixed; right: 22px; bottom: 22px; z-index: 20;
+    width: 280px;
+    background: #fff5b8;
+    border-radius: 4px;
+    box-shadow: 4px 6px 0 rgba(0,0,0,0.12);
+    padding: 16px 18px 14px;
+    transform: rotate(-1deg);
+    display: none;
+  }
+  .tweaks.open { display: block; }
+  .tweaks h4 {
+    font-family: 'Caveat', cursive; font-size: 22px; margin: 0 0 10px;
+    color: #3a3208;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .tweaks h4 .x {
+    font-family: 'Kalam', sans-serif; font-size: 14px; cursor: pointer;
+    color: #5a4a10;
+  }
+  .tweaks .tw-row {
+    margin-bottom: 12px;
+    font-family: 'Kalam', sans-serif; font-size: 13px; color: #3a3208;
+  }
+  .tweaks .tw-row label {
+    display: block; margin-bottom: 4px;
+    font-family: 'Caveat', cursive; font-size: 16px;
+  }
+  .tweaks .tw-row .opts { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tweaks .tw-row .opt {
+    border: 1.2px solid #5a4a10;
+    padding: 3px 9px; border-radius: 99px;
+    cursor: pointer;
+    font-size: 12px;
+    background: rgba(255,255,255,0.4);
+  }
+  .tweaks .tw-row .opt.on { background: #3a3208; color: #fff5b8; border-color: #3a3208; }
+
+  .tweaks-toggle {
+    position: fixed; right: 22px; bottom: 22px; z-index: 19;
+    background: var(--ink); color: var(--paper);
+    border: none;
+    font-family: 'Caveat', cursive; font-size: 18px;
+    padding: 10px 18px;
+    border-radius: 30px;
+    cursor: pointer;
+    box-shadow: 2px 3px 0 rgba(0,0,0,0.2);
+  }
+
+  /* misc */
+  .row-flex { display: flex; gap: 10px; align-items: center; }
+  .spacer-sm { height: 12px; } .spacer-md { height: 24px; } .spacer-lg { height: 40px; }
+
+  .doodle-arrow {
+    position: absolute;
+    font-family: 'Caveat', cursive;
+    color: var(--accent);
+    font-size: 22px;
+    line-height: 1.1;
+  }
+  .doodle-arrow svg { display: block; }
+
+  /* small help text under each scene */
+  .scene-intro {
+    font-family: 'Kalam', sans-serif;
+    font-size: 14px; color: var(--ink-2);
+    margin: 0 0 22px;
+    padding: 10px 14px;
+    background: var(--paper-2);
+    border-left: 3px solid var(--ink);
+    border-radius: 0 8px 8px 0;
+    max-width: 760px;
+  }
+  .scene-intro b { font-family: 'Caveat', cursive; font-size: 18px; color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    Scrip<span class="vec">vec</span>
+    <span class="tag">~ semantic search for scripture</span>
+  </div>
+  <div class="meta">wireframes · v0.1 · 4 directions</div>
+</div>
+
+<div class="tabs" id="tabs">
+  <button class="tab active" data-scene="s1"><span class="num">01</span>Search-first</button>
+  <button class="tab" data-scene="s2"><span class="num">02</span>Split pane</button>
+  <button class="tab" data-scene="s3"><span class="num">03</span>Research</button>
+  <button class="tab" data-scene="s4"><span class="num">04</span>Details view</button>
+</div>
+
+<div class="stage">
+
+  <!-- ===================== SCENE 1: SEARCH-FIRST ===================== -->
+  <section class="scene active" id="s1" data-screen-label="01 Search-first">
+    <p class="scene-intro"><b>Direction 01.</b> Google-style. One enormous query field, nothing else above the fold. Filters appear after the first search. Best if the user already knows what they're looking for.</p>
+
+    <div class="sketch-frame" style="padding: 0 28px 36px;">
+      <span class="frame-label">desktop · home → results <span class="pill">low-fi</span></span>
+
+      <div class="s1-hero">
+        <h1>What does scripture say about…</h1>
+        <p>Type a phrase, a feeling, or a question. Get back the verses closest in meaning.</p>
+
+        <div class="s1-search-wrap">
+          <input class="input big" placeholder="overcoming doubt when prayers feel unanswered" value="overcoming doubt when prayers feel unanswered" />
+          <div class="s1-suggestions">
+            <span class="chip">"finding peace in trials"</span>
+            <span class="chip">"a broken heart and contrite spirit"</span>
+            <span class="chip">"covenant promises to Israel"</span>
+          </div>
+
+          <!-- doodle annotation -->
+          <div class="s1-annot" style="right: -180px; top: 30px;">
+            <div class="sticky"><b>~ the hero ~</b>This is the whole product. Make it feel inviting, not Googly.</div>
+          </div>
+          <div class="s1-annot" style="left: -120px; top: 90px;">
+            <span class="annotation" style="transform: rotate(-8deg);">suggested<br>queries ↗</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="s1-results-head">
+        <h3>12 verses · semantically nearest</h3>
+        <div class="s1-filters">
+          <span class="chip on"><span class="dot"></span>Book of Mormon</span>
+          <span class="chip on"><span class="dot"></span>D&amp;C</span>
+          <span class="chip">sort: relevance ▾</span>
+          <span class="chip">top 12 ▾</span>
+        </div>
+      </div>
+
+      <!-- results -->
+      <div class="verse">
+        <div class="ref">Ether 12:6<small>Book of Mormon</small></div>
+        <div class="verse-body">…<span class="hl">dispute not because ye see not, for ye receive no witness until after the trial of your faith</span>. And it came to pass that Moroni, having heard…</div>
+        <div class="score"><b>0.91</b>cosine<div class="bar"><i style="width: 91%"></i></div></div>
+      </div>
+      <div class="verse">
+        <div class="ref">D&amp;C 6:36<small>Doctrine &amp; Covenants</small></div>
+        <div class="verse-body"><span class="hl">Look unto me in every thought; doubt not, fear not.</span> Behold the wounds which pierced my side, and also the prints of the nails in my hands and feet…</div>
+        <div class="score"><b>0.88</b>cosine<div class="bar"><i style="width: 88%"></i></div></div>
+      </div>
+      <div class="verse">
+        <div class="ref">Alma 32:21<small>Book of Mormon</small></div>
+        <div class="verse-body">And now as I said concerning faith — <span class="hl">faith is not to have a perfect knowledge of things; therefore if ye have faith ye hope for things which are not seen, which are true</span>.</div>
+        <div class="score"><b>0.84</b>cosine<div class="bar"><i style="width: 84%"></i></div></div>
+      </div>
+      <div class="verse">
+        <div class="ref">D&amp;C 9:8<small>Doctrine &amp; Covenants</small></div>
+        <div class="verse-body">But, behold, I say unto you, that you must <span class="hl">study it out in your mind; then you must ask me if it be right</span>, and if it is right I will cause that your bosom shall burn within you…</div>
+        <div class="score"><b>0.79</b>cosine<div class="bar"><i style="width: 79%"></i></div></div>
+      </div>
+      <div class="verse">
+        <div class="ref">Mosiah 4:9<small>Book of Mormon</small></div>
+        <div class="verse-body">Believe in God; <span class="hl">believe that he is, and that he created all things</span>, both in heaven and in earth; believe that he has all wisdom, and all power, both in heaven and in earth…</div>
+        <div class="score"><b>0.76</b>cosine<div class="bar"><i style="width: 76%"></i></div></div>
+      </div>
+
+      <div style="text-align:center; margin-top: 22px;">
+        <button class="btn ghost">load 7 more ↓</button>
+      </div>
+
+      <!-- bottom annotation -->
+      <div style="position: absolute; right: 30px; bottom: -20px; transform: rotate(2deg);">
+        <span class="annotation">↑ verses, sorted by cosine — show score so users<br>build intuition for the model</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SCENE 2: SPLIT PANE ===================== -->
+  <section class="scene" id="s2" data-screen-label="02 Split pane">
+    <p class="scene-intro"><b>Direction 02.</b> Power-user view. Filters live permanently on the left, results stream into the right. Every knob the CLI exposes — top-k, threshold, volume, book — is visible at all times.</p>
+
+    <div class="sketch-frame">
+      <span class="frame-label">desktop · power view <span class="pill">low-fi</span></span>
+
+      <div class="s2">
+        <aside class="s2-side">
+          <h4>Filters <span class="count">— 4 active</span></h4>
+
+          <div class="group">
+            <div style="font-family: 'Caveat', cursive; font-size: 16px; color: var(--ink-3); margin-bottom: 4px;">VOLUME</div>
+            <div class="row checked"><span class="box"></span>Book of Mormon <span class="num">6,604</span></div>
+            <div class="row checked"><span class="box"></span>Doctrine &amp; Covenants <span class="num">3,654</span></div>
+            <div class="row"><span class="box"></span>Pearl of Great Price <span class="num">— soon</span></div>
+            <div class="row"><span class="box"></span>Old Testament <span class="num">— soon</span></div>
+          </div>
+
+          <div class="group">
+            <div style="font-family: 'Caveat', cursive; font-size: 16px; color: var(--ink-3); margin-bottom: 4px;">BOOK</div>
+            <div class="row"><span class="box"></span>1 Nephi</div>
+            <div class="row checked"><span class="box"></span>Alma</div>
+            <div class="row"><span class="box"></span>3 Nephi</div>
+            <div class="row checked"><span class="box"></span>Moroni</div>
+            <div class="row" style="color: var(--ink-3); font-style: italic;">+ 11 more…</div>
+          </div>
+
+          <div class="group">
+            <div style="font-family: 'Caveat', cursive; font-size: 16px; color: var(--ink-3); margin-bottom: 4px;">TOP-K</div>
+            <div class="slider-row">
+              <div class="slider-track"><i style="width: 30%"></i><span class="knob" style="left: 30%"></span></div>
+              <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-3);">
+                <span>5</span><span>15</span><span>50</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="group">
+            <div style="font-family: 'Caveat', cursive; font-size: 16px; color: var(--ink-3); margin-bottom: 4px;">SIMILARITY ≥</div>
+            <div class="slider-row">
+              <div class="slider-track"><i style="width: 65%"></i><span class="knob" style="left: 65%"></span></div>
+              <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-3);">
+                <span>0.0</span><span>0.65</span><span>1.0</span>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn ghost" style="margin-top: 10px; font-size: 16px;">reset all</button>
+
+          <div class="sticky" style="margin-top: 24px;">
+            <b>~ note ~</b>Mirror every CLI flag here. Power users will compare to their terminal.</div>
+        </aside>
+
+        <main class="s2-main">
+          <div class="qbar">
+            <input class="input" value="being a peacemaker among contention" placeholder="search…" />
+            <button class="btn">search</button>
+          </div>
+
+          <div style="display:flex; gap:6px; margin-bottom: 14px; flex-wrap: wrap;">
+            <span class="chip on"><span class="dot"></span>BoM</span>
+            <span class="chip on"><span class="dot"></span>D&amp;C</span>
+            <span class="chip">books: Alma + Moroni ⓧ</span>
+            <span class="chip">k=15</span>
+            <span class="chip">≥ 0.65</span>
+          </div>
+
+          <div class="s2-result-meta">
+            <span>15 results · 38ms · model: text-embedding-3-large</span>
+            <span>export ↓</span>
+          </div>
+
+          <div class="verse">
+            <div class="ref">Alma 38:12<small>BoM · Alma to Shiblon</small></div>
+            <div class="verse-body"><span class="hl">Use boldness, but not overbearance; and also see that ye bridle all your passions</span>, that ye may be filled with love; see that ye refrain from idleness.</div>
+            <div class="score"><b>0.89</b>cosine<div class="bar"><i style="width: 89%"></i></div></div>
+          </div>
+          <div class="verse">
+            <div class="ref">3 Nephi 11:29<small>BoM · Christ in Bountiful</small></div>
+            <div class="verse-body">For verily, verily I say unto you, <span class="hl">he that hath the spirit of contention is not of me, but is of the devil</span>, who is the father of contention…</div>
+            <div class="score"><b>0.87</b>cosine<div class="bar"><i style="width: 87%"></i></div></div>
+          </div>
+          <div class="verse">
+            <div class="ref">D&amp;C 19:23<small>D&amp;C · to Martin Harris</small></div>
+            <div class="verse-body">Learn of me, and listen to my words; <span class="hl">walk in the meekness of my Spirit, and you shall have peace in me</span>.</div>
+            <div class="score"><b>0.83</b>cosine<div class="bar"><i style="width: 83%"></i></div></div>
+          </div>
+          <div class="verse">
+            <div class="ref">Moroni 7:48<small>BoM · charity</small></div>
+            <div class="verse-body">…pray unto the Father with all the energy of heart, that ye may be filled with this love, which he hath bestowed upon all who are true followers of his Son…</div>
+            <div class="score"><b>0.78</b>cosine<div class="bar"><i style="width: 78%"></i></div></div>
+          </div>
+          <div class="verse">
+            <div class="ref">Mosiah 4:13<small>BoM · King Benjamin</small></div>
+            <div class="verse-body">And ye will not have a mind to injure one another, but to live peaceably, and to render to every man according to that which is his due.</div>
+            <div class="score"><b>0.74</b>cosine<div class="bar"><i style="width: 74%"></i></div></div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SCENE 3: CONVERSATIONAL ===================== -->
+  <section class="scene" id="s3" data-screen-label="03 Research">
+    <p class="scene-intro"><b>Direction 03 · Research.</b> Every turn is just another search — queries stack up as a thread so you can scan across multiple searches at once. Hover any verse to pin it to the <b>Notes &amp; Verses</b> list on the left. Add freeform notes interleaved between pinned verses. Save lists (appear in right rail), re-open to edit, or export.</p>
+
+    <div class="s3-wrap">
+
+      <!-- LEFT: Notes & Verses list -->
+      <aside class="nv-panel">
+        <div class="nv-head">Notes &amp; Verses <span class="ct" id="nvCount">2 items</span></div>
+        <div class="nv-title" id="nvTitle">Untitled list <span class="dot" id="nvDirty">●</span></div>
+
+        <div class="nv-list" id="nvList">
+          <div class="nv-item verse">
+            <span class="marker">v.</span>
+            <div class="ref-line">D&amp;C 42:45</div>
+            <div class="body">Thou shalt live together in love, insomuch that thou shalt weep for the loss of them that die…</div>
+            <span class="rm" data-rm>remove</span>
+          </div>
+          <div class="nv-item note" contenteditable="true" spellcheck="false">remember to read Elder Holland's talk on grief — this ties in
+            <span class="rm" data-rm>remove</span>
+          </div>
+        </div>
+
+        <div class="nv-actions">
+          <button class="nv-btn" id="addNote">+ note</button>
+          <button class="nv-btn primary" id="saveList">save</button>
+          <button class="nv-btn accent" id="exportList">export</button>
+        </div>
+      </aside>
+
+      <!-- CENTER: conversation -->
+      <div class="s3">
+        <div class="s3-thread" id="s3Thread">
+          <div class="msg you">comfort for someone grieving the loss of a child</div>
+
+          <div class="msg bot">
+            <div class="label">↳ 5 nearest verses</div>
+            <div class="verses">
+              <div class="v pinned" data-ref="D&amp;C 42:45" data-body="Thou shalt live together in love, insomuch that thou shalt weep for the loss of them that die, and more especially for those that have not hope of a glorious resurrection.">
+                <button class="pin-btn" title="pin to list"><span class="material-icons">check</span></button>
+                <div class="ref-line">D&amp;C 42:45 <span class="sc">0.92</span></div>
+                <div class="body">Thou shalt live together in love, insomuch that thou shalt weep for the loss of them that die, and more especially for those that have not hope of a glorious resurrection.</div>
+              </div>
+              <div class="v" data-ref="Mosiah 18:9" data-body="…willing to mourn with those that mourn; yea, and comfort those that stand in need of comfort, and to stand as witnesses of God at all times and in all things and in all places…">
+                <button class="pin-btn" title="pin to list"><span class="material-icons">add</span></button>
+                <div class="ref-line">Mosiah 18:9 <span class="sc">0.88</span></div>
+                <div class="body">…willing to mourn with those that mourn; yea, and comfort those that stand in need of comfort, and to stand as witnesses of God at all times…</div>
+              </div>
+              <div class="v" data-ref="Alma 40:11–12" data-body="…the spirits of all men, as soon as they are departed from this mortal body, are taken home to that God who gave them life… into a state of happiness, which is called paradise, a state of rest…">
+                <button class="pin-btn" title="pin to list"><span class="material-icons">add</span></button>
+                <div class="ref-line">Alma 40:11–12 <span class="sc">0.85</span></div>
+                <div class="body">…the spirits of all men, as soon as they are departed from this mortal body, are taken home to that God who gave them life… into a state of happiness, which is called paradise, a state of rest…</div>
+              </div>
+            </div>
+            <div class="followup">
+              <span class="chip">+ show 2 more</span>
+              <span class="chip">open D&amp;C 42:45 →</span>
+            </div>
+          </div>
+
+          <div class="msg you">verses about the resurrection of the body</div>
+
+          <div class="msg bot">
+            <div class="label">↳ 5 nearest verses</div>
+            <div class="verses">
+              <div class="v" data-ref="Alma 11:43" data-body="The spirit and the body shall be reunited again in its perfect form; both limb and joint shall be restored to its proper frame, even as we now are at this time…">
+                <button class="pin-btn" title="pin to list"><span class="material-icons">add</span></button>
+                <div class="ref-line">Alma 11:43 <span class="sc">0.90</span></div>
+                <div class="body">The spirit and the body shall be reunited again in its perfect form; both limb and joint shall be restored to its proper frame…</div>
+              </div>
+              <div class="v" data-ref="Mosiah 16:8" data-body="But there is a resurrection, therefore the grave hath no victory, and the sting of death is swallowed up in Christ.">
+                <button class="pin-btn" title="pin to list"><span class="material-icons">add</span></button>
+                <div class="ref-line">Mosiah 16:8 <span class="sc">0.86</span></div>
+                <div class="body">But there is a resurrection, therefore the grave hath no victory, and the sting of death is swallowed up in Christ.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="s3-composer">
+          <input placeholder="ask a follow-up…" />
+          <button class="btn" id="s3Search">search →</button>
+        </div>
+      </div>
+
+      <!-- RIGHT: saved lists -->
+      <aside class="saved-panel">
+        <div class="saved-head">Saved lists <span class="ct" id="savedCount">3</span></div>
+        <div id="savedList">
+          <div class="saved-item">
+            <div class="name">Sunday school — grief</div>
+            <div class="meta">7 items · apr 12</div>
+          </div>
+          <div class="saved-item">
+            <div class="name">Faith vs. doubt</div>
+            <div class="meta">12 items · apr 04</div>
+          </div>
+          <div class="saved-item">
+            <div class="name">Atonement cross-refs</div>
+            <div class="meta">22 items · mar 30</div>
+          </div>
+        </div>
+
+        <div class="sticky" style="margin: 20px auto 0; transform: rotate(1.2deg);">
+          <b>~ loading rule ~</b>If the current list has unsaved items, clicking a saved list saves the current one first, then loads.
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===================== SCENE 4: READER-IN-CONTEXT ===================== -->
+  <section class="scene" id="s4" data-screen-label="04 Reader-in-context">
+    <p class="scene-intro"><b>Direction 04 · the details view.</b> This is where you land when you click a verse on tabs 01–03. The clicked verse opens in its full chapter (center). Left pane keeps the original search results — click any to re-open it here. Right pane auto-runs a semantic search using the <i>current verse</i> as the query. Also has its own search bar for starting fresh.</p>
+
+    <div class="sketch-frame" style="padding: 22px;">
+      <span class="frame-label">desktop · details view (click a verse → here) <span class="pill">low-fi</span></span>
+
+      <div class="row-flex" style="margin-bottom: 22px;">
+        <input class="input" value="the worth of souls is great in the sight of God" />
+        <button class="btn">search</button>
+        <button class="btn ghost">filters</button>
+        <span class="annotation" style="margin-left: 8px; white-space: nowrap;">↖ own search bar</span>
+      </div>
+
+      <div class="s4">
+        <!-- LEFT: original search results -->
+        <aside class="s4-results">
+          <div class="rhead">Your search <span class="ct">12 verses</span></div>
+          <div class="query"><b>query</b>the worth of souls is great in the sight of God</div>
+
+          <div class="s4-res active">
+            <div class="top"><span class="r">D&amp;C 18:10</span><span class="s">0.94 ●</span></div>
+            <div class="snip">Remember the worth of souls is great in the sight of God; for, behold, the Lord your Redeemer suffered death in the flesh…</div>
+          </div>
+          <div class="s4-res">
+            <div class="top"><span class="r">Mosiah 28:3</span><span class="s">0.88</span></div>
+            <div class="snip">…they were desirous that salvation should be declared to every creature, for they could not bear that any human soul should perish…</div>
+          </div>
+          <div class="s4-res">
+            <div class="top"><span class="r">Alma 31:35</span><span class="s">0.85</span></div>
+            <div class="snip">Behold, O Lord, their souls are precious, and many of them are our brethren; therefore, give unto us, O Lord, power and wisdom…</div>
+          </div>
+          <div class="s4-res">
+            <div class="top"><span class="r">Moroni 8:17</span><span class="s">0.82</span></div>
+            <div class="snip">…I am filled with charity, which is everlasting love; wherefore, all children are alike unto me…</div>
+          </div>
+          <div class="s4-res">
+            <div class="top"><span class="r">3 Nephi 17:7</span><span class="s">0.80</span></div>
+            <div class="snip">Have ye any that are sick among you? Bring them hither. Have ye any that are lame, or blind, or halt, or maimed…</div>
+          </div>
+          <div class="s4-res">
+            <div class="top"><span class="r">D&amp;C 121:34</span><span class="s">0.77</span></div>
+            <div class="snip">Behold, there are many called, but few are chosen. And why are they not chosen?…</div>
+          </div>
+          <div class="s4-res">
+            <div class="top"><span class="r">Alma 26:37</span><span class="s">0.75</span></div>
+            <div class="snip">Now my brethren, we see that God is mindful of every people… yea, he numbereth his people…</div>
+          </div>
+          <div style="text-align:center; margin-top: 8px; font-family:'Kalam',sans-serif; font-size:12px; color: var(--ink-3);">+ 5 more ↓</div>
+        </aside>
+
+        <article class="s4-reader">
+          <div class="breadcrumb">D&amp;C › Section 18 › verses 9–17</div>
+          <h2>Doctrine &amp; Covenants 18</h2>
+
+          <div class="s4-chapter">
+            <p><span class="vn">8</span>And now, marvel not that I have called him unto mine own purpose, which purpose is known in me; wherefore, if he shall be diligent in keeping my commandments he shall be blessed unto eternal life…</p>
+
+            <p class="focus"><span class="vn">10</span>Remember the worth of souls is great in the sight of God; <span style="background: var(--highlight); padding: 0 2px;">for, behold, the Lord your Redeemer suffered death in the flesh; wherefore he suffered the pain of all men, that all men might repent and come unto him.</span></p>
+
+            <p><span class="vn">11</span>And he hath risen again from the dead, that he might bring all men unto him, on conditions of repentance.</p>
+
+            <p><span class="vn">12</span>And how great is his joy in the soul that repenteth!</p>
+
+            <p><span class="vn">13</span>Wherefore, you are called to cry repentance unto this people. And if it so be that you should labor all your days in crying repentance unto this people, and bring, save it be one soul unto me, how great shall be your joy with him in the kingdom of my Father!</p>
+
+            <p><span class="vn">14</span>And now, if your joy will be great with one soul that you have brought unto me into the kingdom of my Father, how great will be your joy if you should bring many souls unto me!</p>
+          </div>
+        </article>
+
+        <aside class="s4-side">
+          <div class="panel" style="display: flex; flex-direction: column; height: 100%;">
+            <h5>Semantically similar <span class="ct">9 found</span></h5>
+            <div style="flex: 1; overflow-y: auto;">
+            <div class="similar-row">
+              <div class="r"><span>Mosiah 28:3</span><span>0.88</span></div>
+              <div class="b">…they were desirous that salvation should be declared to every creature, for they could not bear that any human soul should perish…</div>
+            </div>
+            <div class="similar-row">
+              <div class="r"><span>Alma 31:35</span><span>0.85</span></div>
+              <div class="b">Behold, O Lord, their souls are precious, and many of them are our brethren; therefore, give unto us, O Lord, power and wisdom…</div>
+            </div>
+            <div class="similar-row">
+              <div class="r"><span>D&amp;C 18:15</span><span>0.83</span></div>
+              <div class="b">And if it so be that you should labor all your days in crying repentance…</div>
+            </div>
+            <div class="similar-row">
+              <div class="r"><span>3 Nephi 17:7</span><span>0.79</span></div>
+              <div class="b">Have ye any that are sick among you? Bring them hither. Have ye any that are lame, or blind, or halt, or maimed…</div>
+            </div>
+            <div class="similar-row">
+              <div class="r"><span>Moroni 8:17</span><span>0.77</span></div>
+              <div class="b">…I am filled with charity, which is everlasting love; wherefore, all children are alike unto me…</div>
+            </div>
+          </div>
+
+            <div class="similar-row">
+              <div class="r"><span>Alma 26:37</span><span>0.74</span></div>
+              <div class="b">Now my brethren, we see that God is mindful of every people… yea, he numbereth his people, and his bowels of mercy are over all the earth…</div>
+            </div>
+            <div class="similar-row">
+              <div class="r"><span>D&amp;C 18:15</span><span>0.72</span></div>
+              <div class="b">And if it so be that you should labor all your days in crying repentance unto this people… how great shall be your joy…</div>
+            </div>
+            </div>
+            <div class="sticky" style="margin: 14px auto 0;"><b>~ idea ~</b>Hovering a similar verse could highlight the matching phrases in the open chapter.</div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- TWEAKS -->
+<button class="tweaks-toggle" id="tweaksToggle">✎ tweak</button>
+<div class="tweaks" id="tweaksPanel">
+  <h4>Tweaks <span class="x" id="closeTweaks">close ✕</span></h4>
+
+  <div class="tw-row">
+    <label>show similarity scores</label>
+    <div class="opts" data-tw="scores">
+      <span class="opt on" data-val="show">show</span>
+      <span class="opt" data-val="hide">hide</span>
+    </div>
+  </div>
+
+  <div class="tw-row">
+    <label>highlight matched phrases</label>
+    <div class="opts" data-tw="hl">
+      <span class="opt on" data-val="yellow">yellow</span>
+      <span class="opt" data-val="underline">underline</span>
+      <span class="opt" data-val="off">off</span>
+    </div>
+  </div>
+
+  <div class="tw-row">
+    <label>annotations &amp; sticky notes</label>
+    <div class="opts" data-tw="notes">
+      <span class="opt on" data-val="show">show</span>
+      <span class="opt" data-val="hide">hide</span>
+    </div>
+  </div>
+
+  <div class="tw-row">
+    <label>density</label>
+    <div class="opts" data-tw="density">
+      <span class="opt on" data-val="comfy">comfy</span>
+      <span class="opt" data-val="compact">compact</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  // tab switching
+  const tabs = document.querySelectorAll('.tab');
+  const scenes = document.querySelectorAll('.scene');
+  function showScene(id) {
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.scene === id));
+    scenes.forEach(s => s.classList.toggle('active', s.id === id));
+    try { localStorage.setItem('scripvec_scene', id); } catch(e){}
+  }
+  tabs.forEach(t => t.addEventListener('click', () => showScene(t.dataset.scene)));
+  try {
+    const saved = localStorage.getItem('scripvec_scene');
+    if (saved && document.getElementById(saved)) showScene(saved);
+  } catch(e){}
+
+  // click any verse result on tabs 1-2 to jump to details view (s3 verses pin instead)
+  document.querySelectorAll('#s1 .verse, #s2 .verse').forEach(el => {
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', () => { showScene('s4'); window.scrollTo({top:0, behavior:'smooth'}); });
+  });
+  // also wire left-pane results inside s4 to re-activate
+  document.querySelectorAll('#s4 .s4-res').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('#s4 .s4-res').forEach(e => e.classList.remove('active'));
+      el.classList.add('active');
+    });
+  });
+
+  // ========== scene 3: Notes & Verses list ==========
+  (function(){
+    const listEl = document.getElementById('nvList');
+    const countEl = document.getElementById('nvCount');
+    const titleEl = document.getElementById('nvTitle');
+    const dirtyDot = document.getElementById('nvDirty');
+    const addNoteBtn = document.getElementById('addNote');
+    const saveBtn = document.getElementById('saveList');
+    const exportBtn = document.getElementById('exportList');
+    const savedListEl = document.getElementById('savedList');
+    const savedCountEl = document.getElementById('savedCount');
+
+    let currentName = 'Untitled list';
+    let dirty = true;
+
+    function updateCount(){
+      const n = listEl.querySelectorAll('.nv-item').length;
+      countEl.textContent = n + (n === 1 ? ' item' : ' items');
+    }
+    function setDirty(d){
+      dirty = d;
+      dirtyDot.style.display = d ? '' : 'none';
+      titleEl.firstChild.textContent = currentName + (d ? ' ' : ' ');
+    }
+    function setTitle(name, isDirty){
+      currentName = name;
+      titleEl.innerHTML = name + ' <span class="dot" id="nvDirty">●</span>';
+      const newDot = document.getElementById('nvDirty');
+      newDot.style.display = isDirty ? '' : 'none';
+      dirty = isDirty;
+    }
+
+    function pinVerse(ref, body){
+      // don't double-pin
+      const existing = [...listEl.querySelectorAll('.nv-item.verse')].find(e => e.dataset.ref === ref);
+      if (existing) { existing.scrollIntoViewIfNeeded ? existing.scrollIntoViewIfNeeded() : existing.scrollIntoView({block:'nearest'}); return false; }
+      const item = document.createElement('div');
+      item.className = 'nv-item verse';
+      item.dataset.ref = ref;
+      item.dataset.body = body;
+      item.innerHTML = '<span class="marker">v.</span><div class="ref-line"></div><div class="body"></div><span class="rm" data-rm>remove</span>';
+      item.querySelector('.ref-line').textContent = ref;
+      item.querySelector('.body').textContent = body;
+      listEl.appendChild(item);
+      updateCount(); setDirty(true);
+      return true;
+    }
+
+    function addNote(){
+      const item = document.createElement('div');
+      item.className = 'nv-item note';
+      item.contentEditable = 'true';
+      item.spellcheck = false;
+      item.textContent = '';
+      const rm = document.createElement('span');
+      rm.className = 'rm'; rm.dataset.rm = ''; rm.textContent = 'remove';
+      item.appendChild(rm);
+      listEl.appendChild(item);
+      item.focus();
+      updateCount(); setDirty(true);
+    }
+
+    // wire pin buttons on verse cards
+    document.querySelectorAll('#s3 .msg.bot .v').forEach(v => {
+      const btn = v.querySelector('.pin-btn');
+      if (!btn) return;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const ref = v.dataset.ref;
+        const body = v.dataset.body;
+        if (pinVerse(ref, body)) {
+          v.classList.add('pinned');
+          btn.innerHTML = '<span class="material-icons">check</span>';
+        }
+      });
+    });
+
+    // remove-item handler (delegated)
+    listEl.addEventListener('click', (e) => {
+      if (e.target.matches('[data-rm]')) {
+        const item = e.target.closest('.nv-item');
+        const ref = item.dataset.ref;
+        item.remove();
+        if (ref) {
+          const card = document.querySelector(`#s3 .msg.bot .v[data-ref="${CSS.escape(ref)}"]`);
+          if (card) { card.classList.remove('pinned'); const b = card.querySelector('.pin-btn'); if (b) b.innerHTML = '<span class="material-icons">add</span>'; }
+        }
+        updateCount(); setDirty(true);
+      }
+    });
+
+    // notes: any edit flips dirty
+    listEl.addEventListener('input', () => setDirty(true));
+
+    addNoteBtn.addEventListener('click', addNote);
+
+    function serializeList(){
+      return [...listEl.querySelectorAll('.nv-item')].map(item => {
+        if (item.classList.contains('verse')) {
+          return { kind: 'verse', ref: item.dataset.ref, body: item.dataset.body };
+        } else {
+          const clone = item.cloneNode(true);
+          const rm = clone.querySelector('[data-rm]'); if (rm) rm.remove();
+          return { kind: 'note', text: clone.textContent.trim() };
+        }
+      });
+    }
+
+    function toMarkdown(name, items){
+      let out = `# ${name}\n\n`;
+      items.forEach(it => {
+        if (it.kind === 'verse') {
+          out += `> **${it.ref}** — ${it.body}\n\n`;
+        } else {
+          out += `${it.text}\n\n`;
+        }
+      });
+      return out;
+    }
+
+    exportBtn.addEventListener('click', () => {
+      const md = toMarkdown(currentName, serializeList());
+      const blob = new Blob([md], {type: 'text/markdown'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = currentName.replace(/[^a-z0-9]+/gi,'-').toLowerCase() + '.md';
+      a.click(); URL.revokeObjectURL(url);
+    });
+
+    saveBtn.addEventListener('click', () => {
+      const name = prompt('Name this list:', currentName === 'Untitled list' ? '' : currentName);
+      if (!name) return;
+      addSavedItem(name, serializeList().length);
+      setTitle(name, false);
+    });
+
+    function addSavedItem(name, count){
+      const item = document.createElement('div');
+      item.className = 'saved-item';
+      item.innerHTML = `<div class="name"></div><div class="meta">${count} items · just now</div>`;
+      item.querySelector('.name').textContent = name;
+      savedListEl.insertBefore(item, savedListEl.firstChild);
+      savedCountEl.textContent = savedListEl.children.length;
+      item.addEventListener('click', () => loadSaved(item, name));
+    }
+
+    function loadSaved(el, name){
+      const itemCount = listEl.querySelectorAll('.nv-item').length;
+      if (dirty && itemCount > 0) {
+        // auto-save current before loading
+        const saveName = currentName === 'Untitled list' ? ('Auto-saved ' + new Date().toLocaleTimeString()) : currentName;
+        addSavedItem(saveName, itemCount);
+      }
+      document.querySelectorAll('#savedList .saved-item').forEach(e => e.classList.remove('active'));
+      el.classList.add('active');
+      setTitle(name, false);
+      // wireframe: we don't actually persist content, just swap title
+      // a real implementation would repopulate listEl from storage
+    }
+    document.querySelectorAll('#savedList .saved-item').forEach(el => {
+      el.addEventListener('click', () => loadSaved(el, el.querySelector('.name').textContent));
+    });
+
+    updateCount();
+  })();
+
+  // tweaks panel
+  const toggle = document.getElementById('tweaksToggle');
+  const panel = document.getElementById('tweaksPanel');
+  const closeBtn = document.getElementById('closeTweaks');
+  toggle.addEventListener('click', () => {
+    panel.classList.add('open');
+    toggle.style.display = 'none';
+  });
+  closeBtn.addEventListener('click', () => {
+    panel.classList.remove('open');
+    toggle.style.display = 'block';
+  });
+
+  // tweak handlers
+  document.querySelectorAll('.tweaks .opts').forEach(group => {
+    group.querySelectorAll('.opt').forEach(opt => {
+      opt.addEventListener('click', () => {
+        group.querySelectorAll('.opt').forEach(o => o.classList.remove('on'));
+        opt.classList.add('on');
+        applyTweak(group.dataset.tw, opt.dataset.val);
+      });
+    });
+  });
+
+  function applyTweak(key, val) {
+    if (key === 'scores') {
+      document.querySelectorAll('.score, .sc').forEach(el => {
+        el.style.display = val === 'show' ? '' : 'none';
+      });
+    }
+    if (key === 'hl') {
+      document.querySelectorAll('.hl').forEach(el => {
+        if (val === 'yellow') { el.style.background = 'var(--highlight)'; el.style.borderBottom = ''; el.style.padding = '0 2px'; }
+        else if (val === 'underline') { el.style.background = 'transparent'; el.style.borderBottom = '2px solid var(--accent)'; el.style.padding = '0'; }
+        else { el.style.background = 'transparent'; el.style.borderBottom = ''; el.style.padding = '0'; }
+      });
+    }
+    if (key === 'notes') {
+      document.querySelectorAll('.sticky, .annotation, .s1-annot, .doodle-arrow').forEach(el => {
+        el.style.display = val === 'show' ? '' : 'none';
+      });
+    }
+    if (key === 'density') {
+      document.documentElement.style.setProperty('--vpad', val === 'compact' ? '10px' : '18px');
+      document.querySelectorAll('.verse').forEach(el => {
+        el.style.padding = val === 'compact' ? '10px 0' : '18px 0';
+      });
+    }
+  }
+</script>
+
+</body>
+</html>
